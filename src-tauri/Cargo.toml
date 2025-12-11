@@ -27,9 +27,6 @@ tauri-plugin-shell = "2"
 # Clipboard Management - wayland-data-control for native Wayland support
 arboard = { version = "3.4", features = ["image-data", "wayland-data-control"] }
 
-# Global Hotkeys
-rdev = { version = "0.5", features = ["unstable_grab"] }
-
 # Async Runtime
 tokio = { version = "1", features = ["full"] }
 
@@ -50,6 +47,9 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 # X11 Simulation for paste injection (Linux)
 [target.'cfg(target_os = "linux")'.dependencies]
 enigo = "0.6"
+x11rb = { version = "0.13", features = ["allow-unsafe-code"] }
+evdev = "0.12"
+libc = "0.2"
 
 [features]
 default = ["custom-protocol"]

@@ -10,6 +10,7 @@ use tauri::{
     AppHandle, Emitter, Manager, State, WebviewWindow,
 };
 use win11_clipboard_history_lib::clipboard_manager::{ClipboardItem, ClipboardManager};
+use win11_clipboard_history_lib::focus_manager::{restore_focused_window, save_focused_window};
 use win11_clipboard_history_lib::hotkey_manager::{HotkeyAction, HotkeyManager};
 
 /// Application state shared across all handlers
@@ -57,11 +58,16 @@ async fn paste_item(app: AppHandle, state: State<'_, AppState>, id: String) -> R
     };
 
     if let Some(item) = item {
-        // Small delay to ensure window is hidden and previous app has focus
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        // Restore focus to the previously active window
+        if let Err(e) = restore_focused_window() {
+            eprintln!("Failed to restore focus: {}", e);
+        }
+
+        // Wait for focus to be restored
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
 
         // Write to clipboard and simulate paste
-        let manager = state.clipboard_manager.lock();
+        let mut manager = state.clipboard_manager.lock();
         manager
             .paste_item(&item)
             .map_err(|e| format!("Failed to paste: {}", e))?;
@@ -74,40 +80,44 @@ async fn paste_item(app: AppHandle, state: State<'_, AppState>, id: String) -> R
 fn show_window_at_cursor(window: &WebviewWindow) {
     use tauri::{PhysicalPosition, PhysicalSize};
 
-    // Try to get cursor position - this may fail on Wayland
-    let cursor_result = window.cursor_position();
+    // Try multiple methods to get cursor position
+    let cursor_pos = get_cursor_position_multi(window);
 
-    match cursor_result {
-        Ok(cursor_pos) => {
-            // X11 or XWayland - we can position at cursor
+    match cursor_pos {
+        Some((x, y)) => {
+            // We got cursor position - position window near cursor
             if let Ok(Some(monitor)) = window.current_monitor() {
                 let monitor_size = monitor.size();
                 let window_size = window.outer_size().unwrap_or(PhysicalSize::new(360, 480));
 
                 // Calculate position, keeping window within screen bounds
-                let mut x = cursor_pos.x as i32;
-                let mut y = cursor_pos.y as i32;
+                let mut pos_x = x;
+                let mut pos_y = y;
 
                 // Adjust if window would go off-screen
-                if x + window_size.width as i32 > monitor_size.width as i32 {
-                    x = monitor_size.width as i32 - window_size.width as i32 - 10;
+                if pos_x + window_size.width as i32 > monitor_size.width as i32 {
+                    pos_x = monitor_size.width as i32 - window_size.width as i32 - 10;
                 }
-                if y + window_size.height as i32 > monitor_size.height as i32 {
-                    y = monitor_size.height as i32 - window_size.height as i32 - 10;
+                if pos_y + window_size.height as i32 > monitor_size.height as i32 {
+                    pos_y = monitor_size.height as i32 - window_size.height as i32 - 10;
                 }
 
-                if let Err(e) = window.set_position(PhysicalPosition::new(x, y)) {
-                    eprintln!("Failed to set window position: {:?}", e);
-                    // Fallback to center
+                // Ensure not negative
+                pos_x = pos_x.max(10);
+                pos_y = pos_y.max(10);
+
+                eprintln!("[Window] Positioning at ({}, {})", pos_x, pos_y);
+                if let Err(e) = window.set_position(PhysicalPosition::new(pos_x, pos_y)) {
+                    eprintln!("[Window] Failed to set position: {:?}", e);
                     let _ = window.center();
                 }
             }
         }
-        Err(e) => {
-            // Wayland - cursor position not available, center the window instead
-            eprintln!("Cursor position not available (Wayland?): {:?}", e);
-            if let Err(center_err) = window.center() {
-                eprintln!("Failed to center window: {:?}", center_err);
+        None => {
+            // No cursor position available, center the window
+            eprintln!("[Window] Cursor position not available, centering");
+            if let Err(e) = window.center() {
+                eprintln!("[Window] Failed to center: {:?}", e);
             }
         }
     }
@@ -116,12 +126,85 @@ fn show_window_at_cursor(window: &WebviewWindow) {
     let _ = window.set_focus();
 }
 
+/// Try multiple methods to get cursor position
+fn get_cursor_position_multi(window: &WebviewWindow) -> Option<(i32, i32)> {
+    // Method 1: Tauri's cursor_position (works in X11 mode)
+    if let Ok(pos) = window.cursor_position() {
+        eprintln!("[Cursor] Got position via Tauri: ({}, {})", pos.x, pos.y);
+        return Some((pos.x as i32, pos.y as i32));
+    }
+
+    // Method 2: Use xdotool (X11)
+    if let Some(pos) = get_cursor_via_xdotool() {
+        return Some(pos);
+    }
+
+    // Method 3: Query X11 directly via x11rb
+    #[cfg(target_os = "linux")]
+    if let Some(pos) = get_cursor_via_x11() {
+        return Some(pos);
+    }
+
+    None
+}
+
+/// Get cursor position using xdotool
+fn get_cursor_via_xdotool() -> Option<(i32, i32)> {
+    let output = std::process::Command::new("xdotool")
+        .args(["getmouselocation", "--shell"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut x: Option<i32> = None;
+    let mut y: Option<i32> = None;
+
+    for line in stdout.lines() {
+        if let Some(val) = line.strip_prefix("X=") {
+            x = val.parse().ok();
+        } else if let Some(val) = line.strip_prefix("Y=") {
+            y = val.parse().ok();
+        }
+    }
+
+    if let (Some(x), Some(y)) = (x, y) {
+        eprintln!("[Cursor] Got position via xdotool: ({}, {})", x, y);
+        return Some((x, y));
+    }
+
+    None
+}
+
+/// Get cursor position via X11 directly
+#[cfg(target_os = "linux")]
+fn get_cursor_via_x11() -> Option<(i32, i32)> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::ConnectionExt;
+
+    let (conn, screen_num) = x11rb::connect(None).ok()?;
+    let screen = &conn.setup().roots[screen_num];
+    let root = screen.root;
+
+    let reply = conn.query_pointer(root).ok()?.reply().ok()?;
+    let x = reply.root_x as i32;
+    let y = reply.root_y as i32;
+
+    eprintln!("[Cursor] Got position via x11rb: ({}, {})", x, y);
+    Some((x, y))
+}
+
 /// Toggle window visibility
 fn toggle_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
         } else {
+            // Save the currently focused window before showing our window
+            save_focused_window();
             show_window_at_cursor(&window);
         }
     }
@@ -130,7 +213,7 @@ fn toggle_window(app: &AppHandle) {
 /// Start clipboard monitoring in background thread
 fn start_clipboard_watcher(app: AppHandle, clipboard_manager: Arc<Mutex<ClipboardManager>>) {
     std::thread::spawn(move || {
-        let mut last_text: Option<String> = None;
+        let mut last_text_hash: Option<u64> = None;
         let mut last_image_hash: Option<u64> = None;
 
         loop {
@@ -138,13 +221,26 @@ fn start_clipboard_watcher(app: AppHandle, clipboard_manager: Arc<Mutex<Clipboar
 
             let mut manager = clipboard_manager.lock();
 
-            // Check for text changes
+            // Check for text changes using hash to detect duplicates reliably
             if let Ok(text) = manager.get_current_text() {
-                if Some(&text) != last_text.as_ref() && !text.is_empty() {
-                    last_text = Some(text.clone());
-                    if let Some(item) = manager.add_text(text) {
-                        // Emit event to frontend
-                        let _ = app.emit("clipboard-changed", &item);
+                if !text.is_empty() {
+                    // Hash the text for comparison
+                    use std::collections::hash_map::DefaultHasher;
+                    use std::hash::{Hash, Hasher};
+                    let mut hasher = DefaultHasher::new();
+                    text.hash(&mut hasher);
+                    let text_hash = hasher.finish();
+
+                    if Some(text_hash) != last_text_hash {
+                        last_text_hash = Some(text_hash);
+                        // Clear image hash when text is copied
+                        last_image_hash = None;
+                        
+                        // add_text handles duplicate detection internally
+                        if let Some(item) = manager.add_text(text) {
+                            // Emit event to frontend
+                            let _ = app.emit("clipboard-changed", &item);
+                        }
                     }
                 }
             }
@@ -153,7 +249,9 @@ fn start_clipboard_watcher(app: AppHandle, clipboard_manager: Arc<Mutex<Clipboar
             if let Ok(Some((image_data, hash))) = manager.get_current_image() {
                 if Some(hash) != last_image_hash {
                     last_image_hash = Some(hash);
-                    if let Some(item) = manager.add_image(image_data) {
+                    // Clear text hash when image is copied
+                    last_text_hash = None;
+                    if let Some(item) = manager.add_image(image_data, hash) {
                         let _ = app.emit("clipboard-changed", &item);
                     }
                 }
