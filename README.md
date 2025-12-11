@@ -36,6 +36,16 @@ Built with 🦀 Rust + ⚡ Tauri v2 + ⚛️ React + 🎨 Tailwind CSS
 
 ### The easiest way to get started (Recommended)
 
+> **One-line install:**
+> ```bash
+> curl -sL https://clipboard.gustavosett.dev | bash
+> ```
+> *Note: This script automatically detects your distribution (Ubuntu, Debian, Fedora, etc.) and installs the appropriate package.*
+
+Or
+
+### Using package managers
+
 > Download the latest release from GitHub and follow the installation instructions for your distribution in [RELEASES](https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux/releases)
 
 
