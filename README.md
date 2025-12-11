@@ -317,11 +317,11 @@ On Wayland, permissions are typically handled automatically by the compositor.
 |--------------|---------|--------|
 | Ubuntu | 22.04+ | ✅ Tested |
 | Debian | 12+ | ✅ Tested |
-| Fedora | 38+ | ✅ Tested |
-| Arch Linux | Rolling | ✅ Tested |
-| Manjaro | Latest | ✅ Tested |
-| Linux Mint | 21+ | ✅ Tested |
-| Pop!_OS | 22.04+ | ✅ Tested |
+| Fedora | 38+ | ⛔ Not tested |
+| Arch Linux | Rolling | ⛔ Not tested |
+| Manjaro | Latest | ⛔ Not tested |
+| Linux Mint | 21+ | ⛔ Not tested |
+| Pop!_OS | 22.04+ | ⛔ Not tested |
 
 ## 🎨 Customization
 
