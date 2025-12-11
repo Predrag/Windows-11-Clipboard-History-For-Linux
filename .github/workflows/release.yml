@@ -33,7 +33,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body: |
-            ## Win11 Clipboard History ${{ github.ref_name }}
+            ## Windows 11 Clipboard History For Linux ${{ github.ref_name }}
             
             A Windows 11-style Clipboard History Manager for Linux.
             

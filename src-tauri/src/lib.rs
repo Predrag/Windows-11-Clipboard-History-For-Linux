@@ -1,4 +1,4 @@
-//! Win11 Clipboard History Library
+//! Windows 11 Clipboard History For Linux Library
 //! This module re-exports the core functionality for use as a library
 
 pub mod clipboard_manager;

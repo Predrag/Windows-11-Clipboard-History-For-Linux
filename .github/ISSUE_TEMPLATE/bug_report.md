@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug or issue with Win11 Clipboard History
+about: Report a bug or issue with Windows 11 Clipboard History For Linux
 title: '[BUG] '
 labels: ['bug', 'triage']
 assignees: ''

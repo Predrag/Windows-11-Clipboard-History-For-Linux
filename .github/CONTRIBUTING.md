@@ -1,6 +1,6 @@
-# Contributing to Win11 Clipboard History
+# Contributing to Windows 11 Clipboard History For Linux
 
-First off, thank you for considering contributing to Win11 Clipboard History! 🎉
+First off, thank you for considering contributing to Windows 11 Clipboard History For Linux! 🎉
 
 ## 📋 Table of Contents
 
@@ -22,7 +22,7 @@ This project and everyone participating in it is governed by our commitment to c
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/win11-clipboard-history-for-linux.git
+   git clone https://github.com/YOUR-USERNAME/Windows-11-Clipboard-History-For-Linux.git
    cd win11-clipboard-history-for-linux
    ```
 3. **Add the upstream remote**:

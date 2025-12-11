@@ -50,7 +50,7 @@ We appreciate security researchers who help keep our project safe. With your per
 
 ## Security Best Practices
 
-When using Win11 Clipboard History:
+When using Windows 11 Clipboard History For Linux:
 
 1. **Keep Updated**: Always use the latest version
 2. **Build from Source**: When possible, verify the source code
@@ -78,4 +78,4 @@ On Wayland, clipboard access follows the compositor's security model, which may 
 
 ---
 
-Thank you for helping keep Win11 Clipboard History secure! 🔐
+Thank you for helping keep Windows 11 Clipboard History For Linux secure! 🔐

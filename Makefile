@@ -1,4 +1,4 @@
-# Win11 Clipboard History - Makefile
+# Windows 11 Clipboard History For Linux - Makefile
 # Cross-distro build and install for Ubuntu, Debian, Fedora, and Arch Linux
 
 SHELL := /bin/bash
@@ -38,7 +38,7 @@ all: build
 
 help:
 	@echo -e "$(CYAN)╔════════════════════════════════════════════════════════════════╗$(RESET)"
-	@echo -e "$(CYAN)║     Win11 Clipboard History - Build Commands                   ║$(RESET)"
+	@echo -e "$(CYAN)║     Windows 11 Clipboard History For Linux - Build Commands                   ║$(RESET)"
 	@echo -e "$(CYAN)╚════════════════════════════════════════════════════════════════╝$(RESET)"
 	@echo ""
 	@echo -e "$(GREEN)Setup:$(RESET)"

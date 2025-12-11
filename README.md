@@ -1,4 +1,4 @@
-# 📋 Win11 Clipboard History
+# 📋 Windows 11 Clipboard History For Linux
 
 <div align="center">
 
