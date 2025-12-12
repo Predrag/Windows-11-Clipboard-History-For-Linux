@@ -217,16 +217,77 @@ EOF
     sudo udevadm trigger --subsystem-match=misc --action=change
 }
 
+# Grant IMMEDIATE access using ACLs (no logout required!)
+# This allows the user to start using the app right away
+# The group membership ensures it works after reboot too
+grant_immediate_access() {
+    log "Granting immediate input device access (no logout needed)..."
+    
+    # Check if setfacl is available, install if not
+    if ! command -v setfacl &> /dev/null; then
+        log "Installing 'acl' package for immediate access..."
+        case "$DISTRO" in
+            ubuntu|debian|linuxmint|pop|kali|neon)
+                sudo apt-get install -y acl 2>/dev/null || true
+                ;;
+            fedora|rhel|centos|almalinux|rocky)
+                sudo dnf install -y acl 2>/dev/null || true
+                ;;
+            arch|manjaro|endeavouros)
+                sudo pacman -S --needed --noconfirm acl 2>/dev/null || true
+                ;;
+            opensuse*)
+                sudo zypper install -y acl 2>/dev/null || true
+                ;;
+        esac
+    fi
+    
+    if command -v setfacl &> /dev/null; then
+        # Grant ACL access to keyboard input devices
+        for dev in /dev/input/event*; do
+            if [ -e "$dev" ]; then
+                sudo setfacl -m "u:${USER}:rw" "$dev" 2>/dev/null || true
+            fi
+        done
+        
+        # Grant ACL access to uinput
+        if [ -e /dev/uinput ]; then
+            sudo setfacl -m "u:${USER}:rw" /dev/uinput 2>/dev/null || true
+        fi
+        
+        echo -e "${GREEN}✓${NC} Granted immediate access to input devices"
+        return 0
+    else
+        log "Could not install 'acl' package for immediate access"
+        return 1
+    fi
+}
+
 setup_input_permissions
+
+NEEDS_LOGOUT=true
+if grant_immediate_access; then
+    NEEDS_LOGOUT=false
+fi
 
 success "Installation completed successfully!"
 echo ""
-echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║                    IMPORTANT: Please log out                   ║${NC}"
-echo -e "${BLUE}║            and log back in for permissions to apply           ║${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo "After logging back in:"
+
+if [ "$NEEDS_LOGOUT" = true ]; then
+    echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║                    IMPORTANT: Please log out                   ║${NC}"
+    echo -e "${BLUE}║            and log back in for permissions to apply           ║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "After logging back in:"
+else
+    echo -e "${GREEN}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║            ✓ Ready to use immediately! No logout required.    ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "To get started:"
+fi
+
 echo "  • Start the app with: win11-clipboard-history"
 echo "  • Use keyboard shortcut: Super+V or Ctrl+Alt+V"
 echo "  • Check version with: win11-clipboard-history --version"

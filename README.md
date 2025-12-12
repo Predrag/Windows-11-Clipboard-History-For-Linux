@@ -59,15 +59,17 @@ This application requires access to input devices for:
 
 After installation:
 
-1. **Log out and log back in** for the permissions to take effect
-2. The installer automatically:
-   - Adds your user to the `input` group
-   - Creates udev rules for input device access
-   - Loads the `uinput` kernel module
+1. **Using the installer script or packages**: Permissions are configured automatically using ACLs for immediate access - **no logout required!**
+2. The installer also adds your user to the `input` group for persistent access after reboot
 
 If you installed manually, run:
 ```bash
-# Add user to input group
+# Install ACL tools and grant immediate access (no logout needed)
+sudo apt install acl  # or dnf/pacman equivalent
+for dev in /dev/input/event*; do sudo setfacl -m "u:$USER:rw" "$dev"; done
+sudo setfacl -m "u:$USER:rw" /dev/uinput
+
+# Also set up persistent access via group membership (for after reboot)
 sudo usermod -aG input $USER
 
 # Create udev rules
@@ -82,8 +84,6 @@ echo "uinput" | sudo tee /etc/modules-load.d/uinput.conf
 
 # Reload udev rules
 sudo udevadm control --reload-rules && sudo udevadm trigger
-
-# Then log out and log back in
 ```
 
 

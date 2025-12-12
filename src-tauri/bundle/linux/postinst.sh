@@ -123,14 +123,74 @@ if [ -n "$ACTUAL_USER" ] && [ "$ACTUAL_USER" != "root" ]; then
     fi
 fi
 
+# Grant IMMEDIATE access using ACLs (no logout required!)
+# This allows the user to start using the app right away
+# The group membership above ensures it works after reboot too
+grant_immediate_access() {
+    local user="$1"
+    
+    if [ -z "$user" ] || [ "$user" = "root" ]; then
+        return
+    fi
+    
+    # Check if setfacl is available
+    if ! command -v setfacl &> /dev/null; then
+        echo -e "${YELLOW}!${NC} 'acl' package not installed. Installing..."
+        if command -v apt-get &> /dev/null; then
+            apt-get install -y acl 2>/dev/null || true
+        elif command -v dnf &> /dev/null; then
+            dnf install -y acl 2>/dev/null || true
+        elif command -v pacman &> /dev/null; then
+            pacman -S --needed --noconfirm acl 2>/dev/null || true
+        elif command -v zypper &> /dev/null; then
+            zypper install -y acl 2>/dev/null || true
+        fi
+    fi
+    
+    if command -v setfacl &> /dev/null; then
+        echo -e "${BLUE}Granting immediate input device access (no logout needed)...${NC}"
+        
+        # Grant ACL access to keyboard input devices
+        for dev in /dev/input/event*; do
+            if [ -e "$dev" ]; then
+                setfacl -m "u:${user}:rw" "$dev" 2>/dev/null || true
+            fi
+        done
+        
+        # Grant ACL access to uinput
+        if [ -e /dev/uinput ]; then
+            setfacl -m "u:${user}:rw" /dev/uinput 2>/dev/null || true
+        fi
+        
+        echo -e "${GREEN}✓${NC} Granted immediate access to input devices"
+        return 0
+    else
+        echo -e "${YELLOW}!${NC} Could not install 'acl' package for immediate access"
+        return 1
+    fi
+}
+
+NEEDS_LOGOUT=true
+if grant_immediate_access "$ACTUAL_USER"; then
+    NEEDS_LOGOUT=false
+fi
+
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║          Windows 11 Clipboard History installed!              ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${YELLOW}IMPORTANT: Please log out and log back in for permissions to apply.${NC}"
-echo ""
-echo "After logging back in:"
+
+if [ "$NEEDS_LOGOUT" = true ]; then
+    echo -e "${YELLOW}IMPORTANT: Please log out and log back in for permissions to apply.${NC}"
+    echo ""
+    echo "After logging back in:"
+else
+    echo -e "${GREEN}✓ Ready to use immediately! No logout required.${NC}"
+    echo ""
+    echo "To get started:"
+fi
+
 echo "  • Press Super+V or Ctrl+Alt+V to open clipboard history"
 echo "  • The app runs in the system tray"
 echo "  • Run 'win11-clipboard-history --version' to check version"
