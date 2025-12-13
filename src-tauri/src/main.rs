@@ -59,19 +59,13 @@ async fn paste_item(app: AppHandle, state: State<'_, AppState>, id: String) -> R
     };
 
     if let Some(item) = item {
-        // 2. Prepare Clipboard (Mark as pasted to avoid loop)
-        {
-            let mut manager = state.clipboard_manager.lock();
-            manager.mark_as_pasted(&item);
-            // The manager handles setting the OS clipboard content internally via paste_item
-            // But we do it manually here to ensure order before the pipeline runs
-            // Actually, the existing lib `paste_item` does both.
-            // Let's rely on the library to set the content, but we handle the UI/Input simulation.
-            manager.paste_item(&item).map_err(|e| e.to_string())?;
-        }
+        // 2. Prepare Environment (Hide Window -> Restore Focus)
+        WindowController::hide(&app);
+        PasteHelper::prepare_target_window().await?;
 
-        // 3. Run UI/Input Sequence
-        PastePipeline::finish(&app).await?;
+        // 3. Perform Paste
+        let mut manager = state.clipboard_manager.lock();
+        manager.paste_item(&item).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -82,8 +76,11 @@ async fn paste_emoji(
     state: State<'_, AppState>,
     char: String,
 ) -> Result<(), String> {
-    // 1. Record Usage
     state.emoji_manager.lock().record_usage(&char);
+
+    // 1. Prepare Environment
+    WindowController::hide(&app);
+    PasteHelper::prepare_target_window().await?;
 
     // 2. Set Clipboard & Mark
     {
@@ -97,8 +94,9 @@ async fn paste_emoji(
             .map_err(|e| e.to_string())?;
     }
 
-    // 3. Run UI/Input Sequence
-    PastePipeline::finish(&app).await?;
+    // 3. Simulate Paste (Manual trigger required for emoji)
+    simulate_paste_keystroke().map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -108,7 +106,7 @@ async fn paste_gif_from_url(
     state: State<'_, AppState>,
     url: String,
 ) -> Result<(), String> {
-    // 1. Download & Set Clipboard (Blocking)
+    // 1. Download (Blocking) - Window stays open to show loading if UI supports it
     let url_clone = url.clone();
     let file_uri = tokio::task::spawn_blocking(move || {
         win11_clipboard_history_lib::gif_manager::paste_gif_to_clipboard_with_uri(&url_clone)
@@ -126,42 +124,59 @@ async fn paste_gif_from_url(
         }
     }
 
-    // 3. Run UI/Input Sequence
-    PastePipeline::finish(&app).await?;
+    // 3. Prepare Environment & Paste
+    WindowController::hide(&app);
+    PasteHelper::prepare_target_window().await?;
+
+    // The clipboard is already set by paste_gif_to_clipboard_with_uri, we just need to paste
+    simulate_paste_keystroke().map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
 #[tauri::command]
 async fn finish_paste(app: AppHandle) -> Result<(), String> {
-    PastePipeline::finish(&app).await
+    WindowController::hide(&app);
+    PasteHelper::prepare_target_window().await?;
+    simulate_paste_keystroke().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
-// --- Window Logic ---
+// --- Helper for Paste Logic ---
+
+struct PasteHelper;
+
+impl PasteHelper {
+    /// Restores focus to the previous window and waits for it to settle.
+    /// This ensures keystrokes are sent to the correct application.
+    async fn prepare_target_window() -> Result<(), String> {
+        if let Err(e) = restore_focused_window() {
+            eprintln!("[PasteHelper] Warning: Focus restoration failed: {}", e);
+        }
+        // Wait for OS window manager (especially Wayland/GNOME) to process focus change
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        Ok(())
+    }
+}
+
+// --- Window Controller (Visibility & Positioning) ---
 
 struct WindowController;
 
 impl WindowController {
-    /// Toggles visibility: If visible -> Hide. If hidden -> Save Focus & Show.
     pub fn toggle(app: &AppHandle) {
         if let Some(window) = app.get_webview_window("main") {
             if window.is_visible().unwrap_or(false) {
+                // If focused or visible, hide it
                 let _ = window.hide();
             } else {
+                // If hidden, save who had focus, move window, then show
                 save_focused_window();
                 Self::position_and_show(&window);
             }
         }
     }
 
-    /// Force show window at cursor
-    pub fn show(app: &AppHandle) {
-        if let Some(window) = app.get_webview_window("main") {
-            save_focused_window();
-            Self::position_and_show(&window);
-        }
-    }
-
-    /// Force hide window
     pub fn hide(app: &AppHandle) {
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.hide();
@@ -169,6 +184,7 @@ impl WindowController {
     }
 
     fn position_and_show(window: &WebviewWindow) {
+        // 1. Get Cursor
         let (cursor_x, cursor_y) = match Self::get_cursor_position(window) {
             Some(pos) => pos,
             None => {
@@ -179,14 +195,14 @@ impl WindowController {
             }
         };
 
-        // Find the monitor that actually contains the cursor
+        // 2. Identify correct monitor
         let target_monitor = Self::find_monitor_containing(window, cursor_x, cursor_y)
             .or_else(|| window.current_monitor().ok().flatten())
             .or_else(|| window.primary_monitor().ok().flatten());
 
+        // 3. Calculate position relative to that monitor
         if let Some(monitor) = target_monitor {
             let pos = Self::clamp_window_to_monitor(window, &monitor, cursor_x, cursor_y);
-            // Move *then* show prevents flickering on wrong monitor
             let _ = window.set_position(pos);
         }
 
@@ -212,12 +228,10 @@ impl WindowController {
         let m_pos = monitor.position();
         let m_size = monitor.size();
 
-        // Calculate max allowed X/Y (Monitor TopLeft + Width - Window Width)
         let max_x = m_pos.x + m_size.width as i32 - win_size.width as i32;
         let max_y = m_pos.y + m_size.height as i32 - win_size.height as i32;
 
-        // Clamp logic: Ensure x is between min_x and max_x
-        // We add a slight padding (10px) to keep it off the strict edge
+        // Clamp with 10px padding
         let safe_x = x.clamp(m_pos.x + 10, max_x - 10);
         let safe_y = y.clamp(m_pos.y + 10, max_y - 10);
 
@@ -225,12 +239,10 @@ impl WindowController {
     }
 
     fn get_cursor_position(window: &WebviewWindow) -> Option<(i32, i32)> {
-        // 1. Tauri (Cross-platform, best if working)
         if let Ok(pos) = window.cursor_position() {
             return Some((pos.x as i32, pos.y as i32));
         }
 
-        // 2. Linux Fallbacks
         #[cfg(target_os = "linux")]
         {
             if let Some(p) = Self::get_cursor_xdotool() {
@@ -279,30 +291,7 @@ impl WindowController {
     }
 }
 
-// --- Logic Helpers ---
-
-/// Centralizes the "cleanup and paste" sequence to ensure consistency
-struct PastePipeline;
-
-impl PastePipeline {
-    async fn finish(app: &AppHandle) -> Result<(), String> {
-        // 1. Hide UI immediately
-        WindowController::hide(app);
-
-        // 2. Restore Focus
-        if let Err(e) = restore_focused_window() {
-            eprintln!("[PastePipeline] Focus restore warning: {}", e);
-        }
-
-        // 3. Wait for Window Manager to settle focus
-        tokio::time::sleep(Duration::from_millis(50)).await;
-
-        // 4. Trigger Keystroke
-        simulate_paste_keystroke()?;
-
-        Ok(())
-    }
-}
+// --- Background Listeners ---
 
 fn start_clipboard_watcher(app: AppHandle, clipboard_manager: Arc<Mutex<ClipboardManager>>) {
     std::thread::spawn(move || {
@@ -381,7 +370,6 @@ fn main() {
         .setup(move |app| {
             let app_handle = app.handle().clone();
 
-            // Tray
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &quit])?;
@@ -393,7 +381,7 @@ fn main() {
                 .menu(&menu)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "quit" => app.exit(0),
-                    "show" => WindowController::show(app),
+                    "show" => WindowController::toggle(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
