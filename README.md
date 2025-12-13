@@ -12,6 +12,7 @@
 *Works on Wayland & X11.*
 
 ![Screenshot](./docs/img/win11-clipboard-history.png)
+![Screenshot](./docs/img/dynamic_themes.jpg)
 
 Built with 🦀 **Rust** + ⚡ **Tauri v2** + ⚛️ **React** + 🎨 **Tailwind CSS**
 
