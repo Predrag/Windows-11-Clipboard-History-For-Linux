@@ -6,14 +6,16 @@
 ![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)
 ![Tauri](https://img.shields.io/badge/tauri-v2-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey.svg)
+![Version](https://img.shields.io/github/v/release/gustavosett/Windows-11-Clipboard-History-For-Linux?color=green)
 
-**A beautiful, Windows 11-style Clipboard History Manager for Linux 💅**
+**A beautiful, Windows 11-style Clipboard History Manager for Linux.**  
+*Works on Wayland & X11.*
 
-<img src="docs/img/win11-clipboard-history.png" alt="Screenshot" style="border-radius: 30px; max-width:100%; height:auto; box-shadow: 0 10px 30px rgba(2,6,23,0.35), 0 2px 6px rgba(2,6,23,0.12); filter: drop-shadow(0 6px 18px rgba(2,6,23,0.25));" />
+![Screenshot](./docs/img/win11-clipboard-history.png)
 
-Built with 🦀 Rust + ⚡ Tauri v2 + ⚛️ React + 🎨 Tailwind CSS
+Built with 🦀 **Rust** + ⚡ **Tauri v2** + ⚛️ **React** + 🎨 **Tailwind CSS**
 
-[Features](#-features) • [Installation](#-installation) • [Development](#-development) • [Contributing](#-contributing)
+[Features](#-features) • [Installation](#-installation) • [How to Use](#-how-to-use) • [Development](#-development)
 
 </div>
 
@@ -21,425 +23,175 @@ Built with 🦀 Rust + ⚡ Tauri v2 + ⚛️ React + 🎨 Tailwind CSS
 
 ## ✨ Features
 
-- 🎨 **Windows 11 Design** - Pixel-perfect recreation of the Win+V clipboard UI with Acrylic/Mica glassmorphism effects
-- 🌙 **Dark/Light Mode** - Automatically detects system theme preference
-- ⌨️ **Global Hotkey** - Press `Super+V` or `Ctrl+Alt+V` to open from anywhere
-- 📌 **Pin Items** - Keep important clipboard entries at the top
-- 🖼️ **Image Support** - Copy and paste images with preview thumbnails
-- 🎬 **GIF Picker** - Search and paste GIFs from Tenor directly into any app
-- 🤩 **Emoji Picker** - Quick access to emojis with search functionality
-- 🚀 **Blazing Fast** - Written in Rust for maximum performance
-- 🔒 **Privacy First** - All data stays local on your machine
-- 🖱️ **Smart Positioning** - Window appears at your cursor position
-- 💨 **System Tray** - Runs silently in the background
-- 🐧 **Wayland & X11** - Works on both display servers
+- 🐧 **Wayland & X11 Support** - Uses kernel-level input handling (`evdev` & `uinput`) to bypass Wayland restrictions.
+- ⚡ **Global Hotkey** - Press `Super+V` or `Ctrl+Alt+V` to open instantly.
+- 🖱️ **Smart Positioning** - Window follows your mouse cursor across multiple monitors.
+- 📌 **Pinning** - Keep important items at the top of your list.
+- 🖼️ **Rich Media** - Supports Images, Text, etc.
+- 🎬 **GIF Integration** - Search and paste GIFs from Tenor directly into Discord, Slack, etc.
+- 🤩 **Emoji Picker** - Built-in searchable emoji keyboard.
+- 🏎️ **Performance** - Native Rust backend ensures minimal resource usage.
+- 🛡️ **Privacy Focused** - History is stored locally and never leaves your machine.
 
-## 🐧 Installation (For Users)
+---
 
-### The easiest way to get started (Recommended)
+## 📥 Installation
 
-> **One-line install:**
-> ```bash
-> curl -sL http://clipboard.gustavosett.dev | bash
-> ```
-> *Note: This script automatically detects your distribution (Ubuntu, Debian, Fedora, etc.), installs the appropriate package, and configures the necessary permissions.*
+### 🚀 Recommended: One-Line Install
 
-Or
-
-### Using package managers
-
-> Download the latest release from GitHub and follow the installation instructions for your distribution in [RELEASES](https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux/releases)
-
-### ⚠️ Important: Permissions Required
-
-This application requires access to input devices for:
-- **Global hotkeys** (Super+V / Ctrl+Alt+V) - uses `evdev` to capture keyboard events directly from `/dev/input/event*`
-- **Paste simulation** (Ctrl+V injection) - uses `uinput` for kernel-level keyboard simulation
-- **Window positioning** - cursor position detection via X11
-
-After installation:
-
-1. **Using the installer script or packages**: Permissions are configured automatically using ACLs for immediate access - **no logout required!**
-2. The installer also adds your user to the `input` group for persistent access after reboot
-
-If you installed manually, run:
-```bash
-# Install ACL tools and grant immediate access (no logout needed)
-sudo apt install acl  # or dnf/pacman equivalent
-for dev in /dev/input/event*; do sudo setfacl -m "u:$USER:rw" "$dev"; done
-sudo setfacl -m "u:$USER:rw" /dev/uinput
-
-# Also set up persistent access via group membership (for after reboot)
-sudo usermod -aG input $USER
-
-# Create udev rules
-sudo tee /etc/udev/rules.d/99-win11-clipboard-input.rules << 'EOF'
-KERNEL=="event*", SUBSYSTEM=="input", MODE="0660", GROUP="input"
-KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"
-EOF
-
-# Load uinput module
-sudo modprobe uinput
-echo "uinput" | sudo tee /etc/modules-load.d/uinput.conf
-
-# Reload udev rules
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
-
-
-## 📦 Installation (For devs)
+This script automatically detects your distro, downloads the correct package (DEB, RPM, or AppImage), sets up permissions, and configures autostart.
 
 ```bash
-# Clone the repository
-git clone https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux.git
-cd win11-clipboard-history
-
-# Install system dependencies (auto-detects your distro)
-make deps
-
-# Install Rust and Node.js if needed
-make rust
-make node
-source ~/.cargo/env  # Reload shell environment
-
-# Build and install
-make build
-sudo make install
+curl -sL http://clipboard.gustavosett.dev | bash
 ```
 
-### Distribution-Specific Dependencies
+> **Note:** This installer uses ACLs to grant immediate access to input devices, so **no logout is required**!
+
+### 📦 Manual Installation
+
+If you prefer to install manually, download the latest release from the [Releases Page](https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux/releases).
 
 <details>
-<summary><b>🟠 Ubuntu / Debian / Linux Mint / Pop!_OS</b></summary>
+<summary><b>Click to see manual setup instructions</b></summary>
 
-```bash
-sudo apt update
-sudo apt install -y \
-    libwebkit2gtk-4.1-dev \
-    build-essential \
-    curl \
-    wget \
-    file \
-    libssl-dev \
-    libayatana-appindicator3-dev \
-    librsvg2-dev \
-    libxdo-dev \
-    libgtk-3-dev \
-    libglib2.0-dev \
-    xclip \
-    wl-clipboard \
-    pkg-config
-```
+1. **Install the package:**
+   - **Debian/Ubuntu:** `sudo apt install ./win11-clipboard-history_*.deb`
+   - **Fedora/RHEL:** `sudo dnf install ./win11-clipboard-history-*.rpm`
+   - **AppImage:** Make executable (`chmod +x`) and run.
+
+2. **Configure Permissions (Crucial):**
+   Since this app listens to global hotkeys on Wayland, it needs access to `/dev/input`.
+
+   ```bash
+   # 1. Create 'input' group
+   sudo groupadd input
+   sudo usermod -aG input $USER
+
+   # 2. Create udev rules
+   echo 'KERNEL=="event*", SUBSYSTEM=="input", MODE="0660", GROUP="input"' | sudo tee /etc/udev/rules.d/99-win11-clipboard-input.rules
+   echo 'KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"' | sudo tee -a /etc/udev/rules.d/99-win11-clipboard-input.rules
+
+   # 3. Load uinput module
+   sudo modprobe uinput
+   echo "uinput" | sudo tee /etc/modules-load.d/uinput.conf
+
+   # 4. Reload rules
+   sudo udevadm control --reload-rules && sudo udevadm trigger
+   ```
+
+   *You will need to log out and back in for group changes to take effect if doing this manually.*
 
 </details>
 
-<details>
-<summary><b>🔵 Fedora</b></summary>
+---
 
-```bash
-sudo dnf install -y \
-    webkit2gtk4.1-devel \
-    openssl-devel \
-    curl \
-    wget \
-    file \
-    libappindicator-gtk3-devel \
-    librsvg2-devel \
-    libxdo-devel \
-    gtk3-devel \
-    glib2-devel \
-    xclip \
-    wl-clipboard \
-    pkg-config \
-    @development-tools
-```
+## ⌨️ How to Use
 
-</details>
+| Hotkey | Action |
+| :--- | :--- |
+| **`Super + V`** | Open Clipboard History |
+| **`Ctrl + Alt + V`** | Alternative Open Shortcut |
+| **`Esc`** | Close Window |
+| **`Arrows / Tab`** | Navigate Items |
+| **`Enter`** | Paste Selected Item |
 
-<details>
-<summary><b>🟣 Arch Linux / Manjaro / EndeavourOS</b></summary>
+### Advanced Usage
+- **Paste GIFs:** Select a GIF, and it will be copied as a file URI. The app simulates `Ctrl+V` to paste it into apps like Discord or Telegram.
+- **Pinning:** Click the pin icon on any item to prevent it from being auto-deleted when the history limit (50 items) is reached.
 
-```bash
-sudo pacman -Syu --needed \
-    webkit2gtk-4.1 \
-    base-devel \
-    curl \
-    wget \
-    file \
-    openssl \
-    libappindicator-gtk3 \
-    librsvg \
-    xdotool \
-    gtk3 \
-    glib2 \
-    xclip \
-    wl-clipboard \
-    pkgconf
-```
-
-</details>
-
-### Install Rust
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source ~/.cargo/env
-```
-
-### Install Node.js (v18+)
-
-```bash
-# Using nvm (recommended)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-source ~/.nvm/nvm.sh
-nvm install 20
-nvm use 20
-```
-
-### Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux.git
-cd win11-clipboard-history
-
-# Install npm dependencies
-npm install
-
-# Build the application
-npm run tauri:build
-
-# The built packages will be in:
-# - Binary: src-tauri/target/release/win11-clipboard-history
-# - DEB package: src-tauri/target/release/bundle/deb/
-# - RPM package: src-tauri/target/release/bundle/rpm/
-# - AppImage: src-tauri/target/release/bundle/appimage/
-```
+---
 
 ## 🛠️ Development
 
-### Quick Start
+### Prerequisites
+
+You need **Rust**, **Node.js (v20+)**, and build tools.
 
 ```bash
-# Install dependencies
-npm install
+# Clone repo
+git clone https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux.git
+cd win11-clipboard-history
 
-# Run in development mode (hot reload enabled)
+# Install system dependencies (auto-detects distro)
+make deps
+
+# Install language tools
+make rust
+make node
+source ~/.cargo/env
+```
+
+### Running in Dev Mode
+
+Use the provided script to ensure the environment is clean (fixes issues with VS Code Snap version):
+
+```bash
 make dev
-# OR
+# or
 ./scripts/run-dev.sh
 ```
 
-> **Note for VS Code Snap users**: If you're using VS Code installed via Snap, use `make dev` or `./scripts/run-dev.sh` instead of `npm run tauri:dev` directly. This script cleans the environment to avoid library conflicts.
-
-### Makefile Commands
-
-| Command | Description |
-|---------|-------------|
-| `make help` | Show all available commands |
-| `make deps` | Install system dependencies (auto-detect distro) |
-| `make deps-ubuntu` | Install dependencies for Ubuntu/Debian |
-| `make deps-fedora` | Install dependencies for Fedora |
-| `make deps-arch` | Install dependencies for Arch Linux |
-| `make rust` | Install Rust via rustup |
-| `make node` | Install Node.js via nvm |
-| `make check-deps` | Verify all dependencies are installed |
-| `make dev` | Run in development mode |
-| `make build` | Build production release |
-| `make install` | Install to system (requires sudo) |
-| `make uninstall` | Remove from system (requires sudo) |
-| `make clean` | Remove build artifacts |
-| `make lint` | Run linters |
-| `make format` | Format code |
-
-### npm Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start Vite dev server (frontend only) |
-| `npm run tauri:dev` | Start full Tauri development mode |
-| `npm run tauri:build` | Build production release |
-| `npm run build` | Build frontend only |
-| `npm run lint` | Run ESLint |
-| `npm run format` | Format code with Prettier |
-
-### Project Structure
-
-```
-win11-clipboard-history/
-├── src/                      # React frontend
-│   ├── components/           # UI components
-│   │   ├── DragHandle.tsx    # Window drag handle
-│   │   ├── EmptyState.tsx    # Empty history state
-│   │   ├── Header.tsx        # App header with actions
-│   │   ├── HistoryItem.tsx   # Clipboard item card
-│   │   └── TabBar.tsx        # Tab navigation
-│   ├── hooks/                # React hooks
-│   │   ├── useClipboardHistory.ts
-│   │   └── useDarkMode.ts
-│   ├── types/                # TypeScript types
-│   │   └── clipboard.ts
-│   ├── App.tsx               # Main app component
-│   ├── index.css             # Global styles + Tailwind
-│   └── main.tsx              # Entry point
-├── src-tauri/                # Rust backend
-│   ├── src/
-│   │   ├── main.rs           # App setup, tray, commands
-│   │   ├── lib.rs            # Library exports
-│   │   ├── clipboard_manager.rs  # Clipboard operations
-│   │   ├── focus_manager.rs      # Window focus tracking for paste
-│   │   └── hotkey_manager.rs     # Global shortcuts (evdev)
-│   ├── capabilities/         # Tauri permissions
-│   ├── icons/                # App icons
-│   ├── Cargo.toml            # Rust dependencies
-│   └── tauri.conf.json       # Tauri configuration
-├── scripts/
-│   └── run-dev.sh            # Clean environment dev script
-├── Makefile                  # Build automation
-├── tailwind.config.js        # Win11 theme config
-├── vite.config.ts            # Vite configuration
-└── package.json              # Node dependencies
-```
-
-### Global Hotkey Permissions
-
-Global keyboard capture requires the user to be in the `input` group to access `/dev/input/event*` devices:
+### Building for Production
 
 ```bash
-sudo usermod -aG input $USER
-# Log out and back in for changes to take effect
+make build
+# Artifacts will be in src-tauri/target/release/bundle/
 ```
 
-This works on both X11 and Wayland as it reads keyboard events directly from the kernel.
-
-## 🐧 Platform Support
-
-### Display Servers
-
-| Display Server | Status | Notes |
-|----------------|--------|-------|
-| X11 | ✅ Full support | Full native support |
-| Wayland | ✅ Full support | Uses evdev for hotkeys, wayland-data-control for clipboard |
-
-### Tested Distributions
-
-| Distribution | Version | Status |
-|--------------|---------|--------|
-| Ubuntu | 22.04+ | ✅ Tested |
-| Debian | 12+ | ✅ Tested |
-| Fedora | 38+ | ⛔ Not tested |
-| Arch Linux | Rolling | ⛔ Not tested |
-| Manjaro | Latest | ⛔ Not tested |
-| Linux Mint | 21+ | ⛔ Not tested |
-| Pop!_OS | 22.04+ | ⛔ Not tested |
-
-## 🎨 Customization
-
-### Changing the Hotkey
-
-Edit `src-tauri/src/hotkey_manager.rs` to modify the global shortcut:
-
-```rust
-// Current: Super+V or Ctrl+Alt+V
-Key::KeyV => {
-    if super_pressed || (ctrl_pressed && alt_pressed) {
-        callback();
-    }
-}
-```
-
-### Theme Colors
-
-The Windows 11 color palette is defined in `tailwind.config.js`:
-
-```js
-colors: {
-  win11: {
-    'bg-primary': '#202020',
-    'bg-accent': '#0078d4',
-    // ... customize as needed
-  }
-}
-```
+---
 
 ## 🔧 Troubleshooting
 
-### Application won't start
+### App won't open with Super+V
+1. Ensure the app is running: `pgrep -f win11-clipboard-history`
+2. Check permissions: `ls -l /dev/input/event0`. The group should be `input` and your user should be in that group (`groups`).
+3. Try the alternative hotkey: `Ctrl+Alt+V`.
 
-1. **Check dependencies**: Run `make check-deps` to verify all dependencies are installed
-2. **Wayland clipboard issues**: The app uses `wayland-data-control` protocol for Wayland clipboard access
-3. **VS Code Snap conflict**: Use `make dev` or `./scripts/run-dev.sh` instead of `npm run tauri:dev`
+### Pasting doesn't work
+1. **Wayland:** Ensure `wl-clipboard` is installed: `sudo apt install wl-clipboard`.
+2. **X11:** Ensure `xclip` is installed: `sudo apt install xclip`.
+3. The app simulates `Ctrl+V`. Ensure the target app accepts this shortcut.
 
-### Global hotkey not working
+### Window appears on the wrong monitor
+The app uses smart cursor tracking. If it appears incorrectly, try moving your mouse to the center of the desired screen and pressing the hotkey again.
 
-1. **Add user to input group**: `sudo usermod -aG input $USER` then log out/in
-2. **Check udev rules exist**: `cat /etc/udev/rules.d/99-win11-clipboard-input.rules`
-3. **Reload udev**: `sudo udevadm control --reload-rules && sudo udevadm trigger`
-4. Try alternative hotkey `Ctrl+Alt+V` instead of `Super+V`
+---
 
-### Paste not working in some apps
+## 🗑️ Uninstalling
 
-1. **Install xdotool** (optional fallback): `sudo apt install xdotool`
-2. **Check uinput module**: `lsmod | grep uinput` - if not loaded, run `sudo modprobe uinput`
-3. **Check /dev/uinput permissions**: `ls -la /dev/uinput` should show group `input`
-
-### Window not showing at cursor position
-
-This may occur on some Wayland compositors. The app forces XWayland mode via `GDK_BACKEND=x11` for better positioning support.
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'feat: add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Development Guidelines
-
-- Follow the existing code style
-- Run `make lint` and `make format` before committing
-- Write meaningful commit messages
-- Add tests for new features
-- Update documentation as needed
-
-### 🗑️ Uninstalling
-
-**Ubuntu / Debian / Linux Mint:**
+**Ubuntu / Debian:**
 ```bash
 sudo apt remove win11-clipboard-history
 ```
 
-**Fedora / RHEL:**
+**Fedora:**
 ```bash
 sudo dnf remove win11-clipboard-history
 ```
 
-**AppImage (other distros):**
+**Installer Script / AppImage:**
 ```bash
-rm -rf ~/.local/lib/win11-clipboard-history ~/.local/bin/win11-clipboard-history ~/.config/autostart/win11-clipboard-history.desktop
+rm -f ~/.local/bin/win11-clipboard-history
+rm -rf ~/.local/lib/win11-clipboard-history
+rm -f ~/.config/autostart/win11-clipboard-history.desktop
 ```
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Tauri](https://tauri.app/) - For the amazing Rust-based framework
-- [Windows 11](https://www.microsoft.com/windows/windows-11) - For the beautiful design inspiration
-- [evdev](https://github.com/emberian/evdev) - For kernel-level global keyboard capture
-- [arboard](https://github.com/1Password/arboard) - For cross-platform clipboard access
-- [x11rb](https://github.com/psychon/x11rb) - For X11 window focus management
 
 ---
 
+## 🤝 Contributing
+
+Contributions are welcome!
+1. Fork it
+2. Create your feature branch (`git checkout -b feature/cool-feature`)
+3. Commit your changes (`git commit -m 'feat: add cool feature'`)
+4. Push to the branch (`git push origin feature/cool-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+MIT License © [Gustavo Sett](https://github.com/gustavosett)
+
 <div align="center">
-
-**If you find this project useful, please consider giving it a ⭐!**
-
-Made with ❤️ for the Linux community
-
+  <br />
+  <b>If you like this project, give it a ⭐!</b>
 </div>
