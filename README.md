@@ -43,7 +43,7 @@ Built with 🦀 **Rust** + ⚡ **Tauri v2** + ⚛️ **React** + 🎨 **Tailwind
 This script automatically detects your distro, downloads the correct package (DEB, RPM, or AppImage), sets up permissions, and configures autostart.
 
 ```bash
-curl -sL http://clipboard.gustavosett.dev | bash
+curl -sL http://install-clipboard.gustavosett.dev | bash
 ```
 
 > **Note:** This installer uses ACLs to grant immediate access to input devices, so **no logout is required**!
