@@ -11,8 +11,8 @@
 **A beautiful, Windows 11-style Clipboard History Manager for Linux.**  
 *Works on Wayland & X11.*
 
-![Screenshot](./docs/img/win11-clipboard-history.png)
-![Screenshot](./docs/img/dynamic_themes.jpg)
+![Screenshot](./docs/img/banner.gif)
+![Screenshot](./docs/img/dynamic_themes.png)
 
 Built with 🦀 **Rust** + ⚡ **Tauri v2** + ⚛️ **React** + 🎨 **Tailwind CSS**
 
