@@ -152,3 +152,77 @@ jobs:
           cloudsmith push rpm gustavosett/clipboard-manager/any-distro/any-version \
             src-tauri/target/release/bundle/rpm/*.rpm \
             --api-key $CLOUDSMITH_API_KEY || echo "Cloudsmith .rpm upload failed (may already exist)"
+
+      - name: Update AUR Package
+        if: ${{ !contains(github.ref_name, 'alpha') && !contains(github.ref_name, 'beta') && !contains(github.ref_name, 'rc') }}
+        continue-on-error: true
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_KEY" ]; then
+            echo "AUR_SSH_KEY not set, skipping AUR update"
+            exit 0
+          fi
+          
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          DEB_FILE=$(ls src-tauri/target/release/bundle/deb/*.deb | head -1)
+          SHA256=$(sha256sum "$DEB_FILE" | cut -d' ' -f1)
+          
+          echo "Updating AUR package to version $VERSION with checksum $SHA256"
+          
+          # Setup SSH for AUR
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          echo "Host aur.archlinux.org
+            User aur
+            IdentityFile ~/.ssh/aur
+            StrictHostKeyChecking no" > ~/.ssh/config
+          
+          # Clone AUR repo
+          git clone ssh://aur@aur.archlinux.org/win11-clipboard-history-bin.git /tmp/aur-pkg
+          cd /tmp/aur-pkg
+          
+          # Update PKGBUILD
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -i "s/sha256sums_x86_64=.*/sha256sums_x86_64=('$SHA256')/" PKGBUILD
+          
+          # Generate .SRCINFO
+          docker run --rm -v "$PWD:/pkg" archlinux bash -c "
+            pacman -Sy --noconfirm pacman-contrib
+            cd /pkg
+            makepkg --printsrcinfo > .SRCINFO
+          " || {
+            # Fallback: generate manually if docker fails
+            echo "pkgbase = win11-clipboard-history-bin
+          pkgdesc = Windows 11-style Clipboard History Manager for Linux
+          pkgver = $VERSION
+          pkgrel = 1
+          url = https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux
+          arch = x86_64
+          license = MIT
+          depends = webkit2gtk-4.1
+          depends = gtk3
+          depends = libayatana-appindicator
+          depends = xclip
+          depends = wl-clipboard
+          depends = acl
+          optdepends = libappindicator-gtk3: Legacy tray icon support
+          provides = win11-clipboard-history
+          conflicts = win11-clipboard-history
+          options = !strip
+          options = !debug
+          source_x86_64 = https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux/releases/download/v$VERSION/win11-clipboard-history_${VERSION}_amd64.deb
+          sha256sums_x86_64 = $SHA256
+          install = win11-clipboard-history-bin.install
+
+          pkgname = win11-clipboard-history-bin" > .SRCINFO
+          }
+          
+          # Commit and push
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to version $VERSION" || echo "No changes to commit"
+          git push || echo "Push failed - may need manual intervention"
