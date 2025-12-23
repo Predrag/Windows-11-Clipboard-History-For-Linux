@@ -36,9 +36,16 @@ RESET := \033[0m
 
 .PHONY: all help deps deps-ubuntu deps-debian deps-fedora deps-arch \
         rust node check-deps dev build install uninstall clean clean-first-run run \
-        lint format test
+        lint format test release
 
 all: build
+
+# Release a new version (usage: make release VERSION=x.y.z)
+release:
+ifndef VERSION
+	$(error VERSION is required. Usage: make release VERSION=x.y.z)
+endif
+	@./scripts/release.sh $(VERSION)
 
 help:
 	@echo -e "$(CYAN)╔════════════════════════════════════════════════════════════════╗$(RESET)"
@@ -69,6 +76,9 @@ help:
 	@echo "  make clean          - Remove build artifacts and first-run config"
 	@echo "  make clean-first-run - Reset first-run config (shows Setup Wizard again)"
 	@echo "  make check-deps     - Verify all dependencies are installed"
+	@echo ""
+	@echo -e "$(GREEN)Release:$(RESET)"
+	@echo "  make release VERSION=x.y.z - Bump version, commit, tag, and push"
 	@echo ""
 	@echo -e "$(YELLOW)Detected distro: $(DISTRO)$(RESET)"
 
