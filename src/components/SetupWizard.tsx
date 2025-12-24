@@ -3,7 +3,17 @@ import { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import { useAutostart } from '../hooks/useAutostart'
 import { getTertiaryBackgroundStyle } from '../utils/themeUtils'
-import { CheckCircle, AlertTriangle, Shield, Rocket, Keyboard, Settings, Copy } from 'lucide-react'
+import {
+  CheckCircle,
+  AlertTriangle,
+  Shield,
+  Rocket,
+  Keyboard,
+  Settings,
+  Copy,
+  AlertCircle,
+  Zap,
+} from 'lucide-react'
 
 interface PermissionStatus {
   uinput_accessible: boolean
@@ -19,6 +29,24 @@ interface ShortcutToolsStatus {
   xfce_tools_available: boolean
   can_register_automatically: boolean
   manual_instructions: string
+  has_conflicts: boolean
+  conflict_count: number
+  can_auto_resolve_conflicts: boolean
+}
+
+interface ShortcutConflict {
+  binding: string
+  current_action: string
+  owner: string
+  resolution_command: string | null
+  resolution_steps: string
+}
+
+interface ConflictDetectionResult {
+  desktop_environment: string
+  conflicts: ShortcutConflict[]
+  can_auto_resolve: boolean
+  message: string
 }
 
 interface SetupWizardProps {
@@ -43,15 +71,70 @@ function useSystemDarkMode(): boolean {
   return isDark
 }
 
+interface WizardButtonProps {
+  id: string
+  onClick: () => void
+  children: React.ReactNode
+  disabled?: boolean
+  primary?: boolean
+  hoveredButton: string | null
+  setHoveredButton: (id: string | null) => void
+  isDark: boolean
+  tertiaryOpacity: number
+}
+
+const WizardButton = ({
+  id,
+  onClick,
+  children,
+  disabled = false,
+  primary = false,
+  hoveredButton,
+  setHoveredButton,
+  isDark,
+  tertiaryOpacity,
+}: WizardButtonProps) => {
+  const isHovered = hoveredButton === id
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setHoveredButton(id)}
+      onMouseLeave={() => setHoveredButton(null)}
+      className={clsx(
+        'px-5 py-2.5 rounded-win11 font-medium transition-all duration-150',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'active:scale-[0.98]',
+        primary
+          ? 'text-win11-bg-accent'
+          : isDark
+            ? 'text-win11-text-secondary'
+            : 'text-win11Light-text-secondary'
+      )}
+      style={
+        isHovered && !disabled ? getTertiaryBackgroundStyle(isDark, tertiaryOpacity) : undefined
+      }
+    >
+      {children}
+    </button>
+  )
+}
+
 export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [step, setStep] = useState(0)
   const [permissions, setPermissions] = useState<PermissionStatus | null>(null)
   const [shortcutTools, setShortcutTools] = useState<ShortcutToolsStatus | null>(null)
+  const [conflicts, setConflicts] = useState<ConflictDetectionResult | null>(null)
   const [fixing, setFixing] = useState(false)
   const [fixError, setFixError] = useState<string | null>(null)
   const [registeringShortcut, setRegisteringShortcut] = useState(false)
   const [shortcutRegistered, setShortcutRegistered] = useState(false)
   const [showManualInstructions, setShowManualInstructions] = useState(false)
+  const [resolvingConflicts, setResolvingConflicts] = useState(false)
+  const [conflictsResolved, setConflictsResolved] = useState(false)
+  const [conflictError, setConflictError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [hoveredButton, setHoveredButton] = useState<string | null>(null)
   const { enableAutostart } = useAutostart()
@@ -59,6 +142,22 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
   // Fixed opacity for the wizard (similar to main app default)
   const tertiaryOpacity = 0.85
+
+  // Local wrapper to reduce prop drilling on every WizardButton usage
+  const Button = (
+    props: Omit<
+      WizardButtonProps,
+      'hoveredButton' | 'setHoveredButton' | 'isDark' | 'tertiaryOpacity'
+    >
+  ) => (
+    <WizardButton
+      {...props}
+      hoveredButton={hoveredButton}
+      setHoveredButton={setHoveredButton}
+      isDark={isDark}
+      tertiaryOpacity={tertiaryOpacity}
+    />
+  )
 
   useEffect(() => {
     if (isDark) {
@@ -71,6 +170,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   useEffect(() => {
     checkPermissions()
     checkShortcutTools()
+    checkConflicts()
   }, [])
 
   const checkPermissions = async () => {
@@ -88,6 +188,32 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       setShortcutTools(status)
     } catch (e) {
       console.error('Failed to check shortcut tools:', e)
+    }
+  }
+
+  const checkConflicts = async () => {
+    try {
+      const result = await invoke<ConflictDetectionResult>('detect_conflicts')
+      setConflicts(result)
+    } catch (e) {
+      console.error('Failed to check conflicts:', e)
+    }
+  }
+
+  const handleResolveConflicts = async () => {
+    setResolvingConflicts(true)
+    setConflictError(null)
+    try {
+      await invoke<string[]>('resolve_conflicts')
+      setConflictsResolved(true)
+      // Refresh conflict status
+      await checkConflicts()
+      await checkShortcutTools()
+    } catch (e) {
+      console.error('Failed to resolve conflicts:', e)
+      setConflictError(String(e))
+    } finally {
+      setResolvingConflicts(false)
     }
   }
 
@@ -137,48 +263,6 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
     navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  // Button component matching app style - transparent with hover background
-  const WizardButton = ({
-    id,
-    onClick,
-    children,
-    disabled = false,
-    primary = false,
-  }: {
-    id: string
-    onClick: () => void
-    children: React.ReactNode
-    disabled?: boolean
-    primary?: boolean
-  }) => {
-    const isHovered = hoveredButton === id
-
-    return (
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        onMouseEnter={() => setHoveredButton(id)}
-        onMouseLeave={() => setHoveredButton(null)}
-        className={clsx(
-          'px-5 py-2.5 rounded-win11 font-medium transition-all duration-150',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          'active:scale-[0.98]',
-          primary
-            ? 'text-win11-bg-accent'
-            : isDark
-              ? 'text-win11-text-secondary'
-              : 'text-win11Light-text-secondary'
-        )}
-        style={
-          isHovered && !disabled ? getTertiaryBackgroundStyle(isDark, tertiaryOpacity) : undefined
-        }
-      >
-        {children}
-      </button>
-    )
   }
 
   // Status message styles
@@ -242,9 +326,9 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
         <br />
         Let's set up a few things to get you started.
       </p>
-      <WizardButton id="start" onClick={() => setStep(1)} primary>
+      <Button id="start" onClick={() => setStep(1)} primary>
         Get Started
-      </WizardButton>
+      </Button>
     </div>,
 
     // Step 1: Permissions
@@ -301,13 +385,13 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
 
       <div className="flex gap-3 justify-center">
         {!permissions?.uinput_accessible && (
-          <WizardButton id="fix" onClick={handleFixPermissions} disabled={fixing}>
+          <Button id="fix" onClick={handleFixPermissions} disabled={fixing}>
             {fixing ? 'Fixing...' : 'Fix Now'}
-          </WizardButton>
+          </Button>
         )}
-        <WizardButton id="perm-continue" onClick={() => setStep(2)} primary>
+        <Button id="perm-continue" onClick={() => setStep(2)} primary>
           {permissions?.uinput_accessible ? 'Continue' : 'Skip'}
-        </WizardButton>
+        </Button>
       </div>
     </div>,
 
@@ -375,6 +459,62 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
         </div>
       )}
 
+      {/* Conflict Warning */}
+      {conflicts && conflicts.conflicts.length > 0 && !conflictsResolved && (
+        <div className={clsx('mb-4', statusCardClass('warning'))}>
+          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium mb-1">
+              {conflicts.conflicts.length} shortcut conflict
+              {conflicts.conflicts.length > 1 ? 's' : ''} detected
+            </p>
+            <p className="text-xs opacity-90 mb-2">
+              Super+V is already used by {conflicts.conflicts[0].owner} for "
+              {conflicts.conflicts[0].current_action}"
+            </p>
+            {conflicts.can_auto_resolve && (
+              <div className="space-y-1">
+                <Button
+                  id="resolve-conflicts"
+                  onClick={handleResolveConflicts}
+                  disabled={resolvingConflicts}
+                >
+                  <span className="flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    {resolvingConflicts ? 'Resolving...' : 'Auto-Fix Conflicts'}
+                  </span>
+                </Button>
+                <p className="text-xs opacity-60">
+                  This will comment out conflicting lines in your config. A backup will be created.
+                </p>
+              </div>
+            )}
+            {!conflicts.can_auto_resolve && (
+              <p className="text-xs opacity-75 mt-1">
+                Manual resolution required. See instructions below.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {conflictsResolved && (
+        <div className={clsx('mb-4', statusCardClass('success'))}>
+          <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <span>Conflicts resolved! Super+V is now available.</span>
+        </div>
+      )}
+
+      {conflictError && (
+        <div className={clsx('mb-4', statusCardClass('error'))}>
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Failed to resolve conflicts</p>
+            <p className="text-xs opacity-90">{conflictError}</p>
+          </div>
+        </div>
+      )}
+
       {shortcutRegistered && (
         <div className={clsx('mb-4', statusCardClass('success'))}>
           <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -392,7 +532,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
               </p>
             </div>
           </div>
-          <WizardButton
+          <Button
             id="copy-path"
             onClick={() => copyToClipboard('/usr/bin/win11-clipboard-history')}
           >
@@ -400,7 +540,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
               <Copy className="w-4 h-4" />
               {copied ? 'Copied!' : 'Copy command path'}
             </span>
-          </WizardButton>
+          </Button>
         </div>
       )}
 
@@ -408,29 +548,29 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
         {shortcutTools?.can_register_automatically &&
           !shortcutRegistered &&
           !showManualInstructions && (
-            <WizardButton
+            <Button
               id="register"
               onClick={handleRegisterShortcut}
               disabled={registeringShortcut}
               primary
             >
               {registeringShortcut ? 'Registering...' : 'Register Automatically'}
-            </WizardButton>
+            </Button>
           )}
 
         {!shortcutTools?.can_register_automatically && !showManualInstructions && (
-          <WizardButton id="show-manual" onClick={() => setShowManualInstructions(true)}>
+          <Button id="show-manual" onClick={() => setShowManualInstructions(true)}>
             Show Manual Instructions
-          </WizardButton>
+          </Button>
         )}
 
-        <WizardButton
+        <Button
           id="shortcut-continue"
           onClick={() => setStep(3)}
           primary={shortcutRegistered || showManualInstructions}
         >
           {shortcutRegistered || showManualInstructions ? 'Continue' : 'Skip'}
-        </WizardButton>
+        </Button>
       </div>
     </div>,
 
@@ -469,12 +609,12 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       </div>
 
       <div className="flex gap-3 justify-center">
-        <WizardButton id="enable-autostart" onClick={handleEnableAutostart} primary>
+        <Button id="enable-autostart" onClick={handleEnableAutostart} primary>
           Yes, enable
-        </WizardButton>
-        <WizardButton id="skip-autostart" onClick={() => setStep(4)}>
+        </Button>
+        <Button id="skip-autostart" onClick={() => setStep(4)}>
           No thanks
-        </WizardButton>
+        </Button>
       </div>
     </div>,
 
@@ -524,9 +664,9 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
           Super + V
         </kbd>
       </div>
-      <WizardButton id="finish" onClick={handleComplete} primary>
+      <Button id="finish" onClick={handleComplete} primary>
         Start Using
-      </WizardButton>
+      </Button>
     </div>,
   ]
 

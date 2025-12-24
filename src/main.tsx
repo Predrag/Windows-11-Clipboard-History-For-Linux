@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import ClipboardApp from './ClipboardApp'
 import SettingsApp from './SettingsApp'
 import { SetupWizard } from './components/SetupWizard'
@@ -25,6 +26,28 @@ function ClipboardAppWithSetup() {
         console.error('Failed to check first run:', err)
         setLoading(false)
       })
+
+    // Listen for reset-to-defaults event from settings
+    let isMounted = true
+    let unlistenFn: (() => void) | null = null
+
+    listen('show-setup-wizard', () => {
+      if (isMounted) {
+        setShowWizard(true)
+      }
+    }).then((fn) => {
+      if (isMounted) {
+        unlistenFn = fn
+      } else {
+        // Component already unmounted, clean up immediately
+        fn()
+      }
+    })
+
+    return () => {
+      isMounted = false
+      unlistenFn?.()
+    }
   }, [])
 
   const handleWizardComplete = () => {
