@@ -215,10 +215,13 @@ export function EmojiPicker({ isDark, opacity }: EmojiPickerProps) {
 
   // Measure container size - use useLayoutEffect for synchronous measurement
   useLayoutEffect(() => {
+    let dimensionsCaptured = false
+    
     const updateSize = () => {
       if (containerRef.current) {
         const { width, height } = containerRef.current.getBoundingClientRect()
         if (width > 0 && height > 0) {
+          dimensionsCaptured = true
           setDimensions((prev) => {
             // Only update if changed to avoid unnecessary re-renders
             if (prev.width !== width || prev.height !== height) {
@@ -236,6 +239,18 @@ export function EmojiPicker({ isDark, opacity }: EmojiPickerProps) {
     // Fallback: if ref exists but dimensions weren't captured, retry after paint
     const rafId = requestAnimationFrame(updateSize)
 
+    // Additional fallback: retry a few times in case component wasn't visible initially
+    let retryCount = 0
+    const maxRetries = 10
+    const retryInterval = setInterval(() => {
+      if (dimensionsCaptured || retryCount >= maxRetries) {
+        clearInterval(retryInterval)
+        return
+      }
+      updateSize()
+      retryCount++
+    }, 50)
+
     // Observe for size changes
     const observer = new ResizeObserver(updateSize)
     if (containerRef.current) {
@@ -244,6 +259,7 @@ export function EmojiPicker({ isDark, opacity }: EmojiPickerProps) {
 
     return () => {
       cancelAnimationFrame(rafId)
+      clearInterval(retryInterval)
       observer.disconnect()
     }
   }, [])
