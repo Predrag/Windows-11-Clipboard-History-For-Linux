@@ -7,11 +7,11 @@
 ![Tauri](https://img.shields.io/badge/tauri-v2-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey.svg)
 ![Version](https://img.shields.io/github/v/release/gustavosett/Windows-11-Clipboard-History-For-Linux?color=green)
+![Sites](https://img.shields.io/website?down_color=red&down_message=offline&up_color=green&up_message=online&url=https%3A%2F%2Fclipboard.gustavosett.dev)
 
-**A beautiful, Windows 11-style Clipboard History Manager for Linux.**  
+**A beautiful, [Windows 11-style Clipboard History Manager for Linux](https://clipboard.gustavosett.dev).**
+
 *Works on Wayland & X11.*
-
-
 
 Built with 🦀 **Rust** + ⚡ **Tauri v2** + ⚛️ **React** + 🎨 **Tailwind CSS**
 
