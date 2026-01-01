@@ -12,6 +12,7 @@ import { GifPicker } from './components/GifPicker'
 import { KaomojiPicker } from './components/KaomojiPicker'
 import { SymbolPicker } from './components/SymbolPicker'
 import { calculateSecondaryOpacity, calculateTertiaryOpacity } from './utils/themeUtils'
+import { useSystemThemePreference } from './utils/systemTheme'
 import type { ActiveTab, UserSettings } from './types/clipboard'
 import { ClipboardTab } from './components/ClipboardTab'
 
@@ -27,26 +28,13 @@ const DEFAULT_SETTINGS: UserSettings = {
 }
 
 /**
- * Determines if dark mode should be active based on theme mode setting
+ * Maps theme mode setting to actual dark mode state.
+ * For 'system' mode, this hook delegates system theme detection
+ * to useSystemThemePreference().
  */
 function useThemeMode(themeMode: 'system' | 'dark' | 'light'): boolean {
-  const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
-    if (globalThis.matchMedia) {
-      return globalThis.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    return true
-  })
+  const systemPrefersDark = useSystemThemePreference()
 
-  useEffect(() => {
-    const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      setSystemPrefersDark(e.matches)
-    }
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [])
-
-  // Determine actual dark mode based on theme setting
   if (themeMode === 'dark') return true
   if (themeMode === 'light') return false
   return systemPrefersDark // 'system' mode

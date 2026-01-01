@@ -23,6 +23,7 @@ use win11_clipboard_history_lib::input_simulator::simulate_paste_keystroke;
 use win11_clipboard_history_lib::permission_checker;
 use win11_clipboard_history_lib::session::is_wayland;
 use win11_clipboard_history_lib::shortcut_setup;
+use win11_clipboard_history_lib::theme_manager::{self, ThemeInfo};
 use win11_clipboard_history_lib::user_settings::{UserSettings, UserSettingsManager};
 
 /// Global flag to track if we started in background mode
@@ -115,6 +116,27 @@ fn is_settings_window_visible(app: AppHandle) -> bool {
     app.get_webview_window("settings")
         .map(|w| w.is_visible().unwrap_or(false))
         .unwrap_or(false)
+}
+
+// --- Theme Detection Commands ---
+
+/// Get system color scheme from XDG Desktop Portal (supports COSMIC and other modern DEs)
+#[tauri::command]
+async fn get_system_theme() -> ThemeInfo {
+    theme_manager::get_system_color_scheme().await
+}
+
+/// Clear the cached theme value (useful when system theme might have changed)
+#[tauri::command]
+async fn refresh_system_theme() -> ThemeInfo {
+    theme_manager::clear_theme_cache().await;
+    theme_manager::get_system_color_scheme().await
+}
+
+/// Check if the D-Bus event listener is running for theme changes
+#[tauri::command]
+fn is_theme_listener_active() -> bool {
+    theme_manager::is_event_listener_running()
 }
 
 #[tauri::command]
@@ -825,6 +847,19 @@ fn main() {
 
             start_clipboard_watcher(app_handle.clone(), clipboard_manager.clone());
 
+            // Start theme change listener (D-Bus event-based, more efficient than polling)
+            #[cfg(target_os = "linux")]
+            {
+                let app_handle_for_theme = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) =
+                        theme_manager::start_theme_listener(app_handle_for_theme).await
+                    {
+                        eprintln!("[ThemeManager] Failed to start theme listener: {}", e);
+                    }
+                });
+            }
+
             // Register global shortcut (Super+V) with the desktop environment
             // This runs in a background thread to avoid blocking startup
             #[cfg(target_os = "linux")]
@@ -901,6 +936,9 @@ fn main() {
             set_user_settings,
             is_settings_window_visible,
             copy_text_to_clipboard,
+            get_system_theme,
+            refresh_system_theme,
+            is_theme_listener_active,
             permission_checker::check_permissions,
             permission_checker::fix_permissions_now,
             permission_checker::is_first_run,

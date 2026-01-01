@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import { useAutostart } from '../hooks/useAutostart'
 import { getTertiaryBackgroundStyle } from '../utils/themeUtils'
+import { useSystemThemePreference } from '../utils/systemTheme'
 import {
   CheckCircle,
   AlertTriangle,
@@ -51,24 +52,6 @@ interface ConflictDetectionResult {
 
 interface SetupWizardProps {
   readonly onComplete: () => void
-}
-
-function useSystemDarkMode(): boolean {
-  const [isDark, setIsDark] = useState(() => {
-    if (globalThis.matchMedia) {
-      return globalThis.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    return true
-  })
-
-  useEffect(() => {
-    const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => setIsDark(e.matches)
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [])
-
-  return isDark
 }
 
 interface WizardButtonProps {
@@ -138,7 +121,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   const [copied, setCopied] = useState(false)
   const [hoveredButton, setHoveredButton] = useState<string | null>(null)
   const { enableAutostart } = useAutostart()
-  const isDark = useSystemDarkMode()
+  const isDark = useSystemThemePreference()
 
   // Fixed opacity for the wizard (similar to main app default)
   const tertiaryOpacity = 0.85

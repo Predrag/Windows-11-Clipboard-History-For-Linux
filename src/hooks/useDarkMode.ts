@@ -1,44 +1,22 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
+import { useSystemThemePreference } from '../utils/systemTheme'
 
 /**
- * Hook for detecting system dark mode preference
+ * Hook for detecting system dark mode preference and syncing with DOM.
+ * Uses CSS media query with XDG Desktop Portal fallback for COSMIC DE and others.
+ * Listens for D-Bus theme change events, with polling fallback if events unavailable.
  */
 export function useDarkMode(): boolean {
-  const [isDark, setIsDark] = useState(() => {
-    if (globalThis.matchMedia) {
-      return globalThis.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    return true // Default to dark mode
-  })
+  const isDark = useSystemThemePreference()
 
-  // Listen for system theme changes and update the dark class on document
+  // Sync DOM with state
   useEffect(() => {
-    const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
-
-    // Update state and document class
-    const updateTheme = (dark: boolean) => {
-      setIsDark(dark)
-      if (dark) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
+    if (isDark) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
     }
-
-    // Set initial theme
-    updateTheme(mediaQuery.matches)
-
-    // Listen for changes
-    const handleChange = (e: MediaQueryListEvent) => {
-      updateTheme(e.matches)
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-
-    return () => {
-      mediaQuery.removeEventListener('change', handleChange)
-    }
-  }, [])
+  }, [isDark])
 
   return isDark
 }

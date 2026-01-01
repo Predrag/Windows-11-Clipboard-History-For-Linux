@@ -7,6 +7,7 @@ import { clsx } from 'clsx'
 
 import type { UserSettings, CustomKaomoji, BooleanSettingKey } from './types/clipboard'
 import { FeaturesSection } from './components/FeaturesSection'
+import { useSystemThemePreference } from './utils/systemTheme'
 
 const MIN_HISTORY_SIZE = 1
 const MAX_HISTORY_SIZE = 100_000
@@ -25,24 +26,11 @@ const DEFAULT_SETTINGS: UserSettings = {
 type ThemeMode = 'system' | 'dark' | 'light'
 
 /**
- * Determines if dark mode should be active based on theme mode setting
+ * Maps theme mode setting to actual dark mode state.
+ * For 'system' mode, delegates to the shared useSystemThemePreference hook.
  */
 function useThemeMode(themeMode: ThemeMode): boolean {
-  const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
-    if (globalThis.matchMedia) {
-      return globalThis.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    return true
-  })
-
-  useEffect(() => {
-    const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      setSystemPrefersDark(e.matches)
-    }
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [])
+  const systemPrefersDark = useSystemThemePreference()
 
   if (themeMode === 'dark') return true
   if (themeMode === 'light') return false
