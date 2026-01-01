@@ -96,24 +96,42 @@ jobs:
             
             A Windows 11-style Clipboard History Manager for Linux.
             
-            ### Quick Installation (Recommended)
+            ### 🚀 Quick Installation (Recommended)
             
             ```bash
             curl -fsSL https://raw.githubusercontent.com/gustavosett/Windows-11-Clipboard-History-For-Linux/master/scripts/install.sh | bash
             ```
             
-            ### Manual Installation
+            This script auto-detects your distro and sets up everything, including paste permissions.
             
-            #### Ubuntu/Debian
-            Download the `.deb` file and install:
+            ---
+            
+            ### 📦 Manual Installation
+            
+            #### Ubuntu/Debian (APT Repository - enables auto-updates)
             ```bash
-            sudo dpkg -i win11-clipboard-history_${{ steps.get_version.outputs.VERSION }}_amd64.deb
+            curl -1sLf 'https://dl.cloudsmith.io/public/gustavosett/clipboard-manager/setup.deb.sh' | sudo -E bash
+            sudo apt update && sudo apt install win11-clipboard-history
+            sudo setfacl -m u:$USER:rw /dev/uinput  # For immediate paste access
             ```
             
-            #### Fedora/RHEL
-            Download the `.rpm` file and install:
+            Or download the `.deb` directly:
             ```bash
-            sudo rpm -i win11-clipboard-history-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
+            sudo apt install ./win11-clipboard-history_${{ steps.get_version.outputs.VERSION }}_amd64.deb
+            sudo setfacl -m u:$USER:rw /dev/uinput
+            ```
+            
+            #### Fedora/RHEL (DNF Repository - enables auto-updates)
+            ```bash
+            curl -1sLf 'https://dl.cloudsmith.io/public/gustavosett/clipboard-manager/setup.rpm.sh' | sudo -E bash
+            sudo dnf install win11-clipboard-history
+            sudo setfacl -m u:$USER:rw /dev/uinput  # For immediate paste access
+            ```
+            
+            Or download the `.rpm` directly:
+            ```bash
+            sudo dnf install ./win11-clipboard-history-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
+            sudo setfacl -m u:$USER:rw /dev/uinput
             ```
             
             #### Arch Linux (AUR)
@@ -121,16 +139,21 @@ jobs:
             yay -S win11-clipboard-history-bin
             ```
             
-            #### Any Linux (AppImage)
-            Download the `.AppImage` file, make it executable, and run:
+            #### AppImage (Universal - any distro)
             ```bash
+            # Download, make executable, and set up paste permissions
             chmod +x win11-clipboard-history_${{ steps.get_version.outputs.VERSION }}_amd64.AppImage
+            sudo setfacl -m u:$USER:rw /dev/uinput  # Required for paste simulation
             ./win11-clipboard-history_${{ steps.get_version.outputs.VERSION }}_amd64.AppImage
             ```
             
-            ### Usage
+            > **Note:** The `setfacl` command is temporary (resets on reboot). For permanent setup, see the [README](https://github.com/gustavosett/Windows-11-Clipboard-History-For-Linux#appimage-universal).
             
-            Press **Super+V** to open the clipboard history.
+            ---
+            
+            ### ⌨️ Usage
+            
+            Press **Super+V** to open the clipboard history. The app will show a Setup Wizard on first run to configure shortcuts and permissions.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

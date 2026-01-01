@@ -55,13 +55,28 @@ Download the latest release from the [Releases Page](https://github.com/gustavos
 <details>
 <summary><b>Debian / Ubuntu / Pop!_OS / Linux Mint</b></summary>
 
+**Option 1: APT Repository (Recommended - enables automatic updates)**
+
+```bash
+# Add the Cloudsmith repository
+curl -1sLf 'https://dl.cloudsmith.io/public/gustavosett/clipboard-manager/setup.deb.sh' | sudo -E bash
+
+# Install the package
+sudo apt update
+sudo apt install win11-clipboard-history
+
+# For immediate paste access (without logout):
+sudo setfacl -m u:$USER:rw /dev/uinput
+```
+
+**Option 2: Direct Download**
+
 ```bash
 # Download and install (replace VERSION with actual version)
 sudo apt install ./win11-clipboard-history_VERSION_amd64.deb
 
 # The package sets up udev rules automatically.
-# You may need to log out and back in for permissions to take effect,
-# or run this for immediate access:
+# For immediate paste access (without logout):
 sudo setfacl -m u:$USER:rw /dev/uinput
 ```
 
@@ -70,11 +85,26 @@ sudo setfacl -m u:$USER:rw /dev/uinput
 <details>
 <summary><b>Fedora / RHEL / CentOS</b></summary>
 
+**Option 1: DNF Repository (Recommended - enables automatic updates)**
+
+```bash
+# Add the Cloudsmith repository
+curl -1sLf 'https://dl.cloudsmith.io/public/gustavosett/clipboard-manager/setup.rpm.sh' | sudo -E bash
+
+# Install the package
+sudo dnf install win11-clipboard-history
+
+# For immediate paste access (without logout):
+sudo setfacl -m u:$USER:rw /dev/uinput
+```
+
+**Option 2: Direct Download**
+
 ```bash
 # Download and install (replace VERSION with actual version)
 sudo dnf install ./win11-clipboard-history-VERSION-1.x86_64.rpm
 
-# For immediate access:
+# For immediate paste access (without logout):
 sudo setfacl -m u:$USER:rw /dev/uinput
 ```
 
@@ -96,18 +126,78 @@ paru -S win11-clipboard-history-bin
 <details>
 <summary><b>AppImage (Universal)</b></summary>
 
+**Quick Start**
+
 ```bash
-# Download the AppImage
+# Download the AppImage from the releases page
 chmod +x win11-clipboard-history_*.AppImage
 
-# Run it
-./win11-clipboard-history_*.AppImage
+# Grant uinput access for paste simulation
+sudo setfacl -m u:$USER:rw /dev/uinput
 
-# For paste to work, grant uinput access:
+# Run the app
+./win11-clipboard-history_*.AppImage
+```
+
+**Full Installation (recommended for regular use)**
+
+```bash
+# Create directories
+mkdir -p ~/.local/bin ~/.local/share/applications
+
+# Move AppImage to local bin
+mv win11-clipboard-history_*.AppImage ~/.local/bin/win11-clipboard-history.AppImage
+chmod +x ~/.local/bin/win11-clipboard-history.AppImage
+
+# Create a wrapper script for clean environment
+cat > ~/.local/bin/win11-clipboard-history << 'EOF'
+#!/bin/bash
+unset LD_LIBRARY_PATH LD_PRELOAD GTK_PATH GIO_MODULE_DIR
+export GDK_BACKEND="x11" NO_AT_BRIDGE=1
+exec "$HOME/.local/bin/win11-clipboard-history.AppImage" "$@"
+EOF
+chmod +x ~/.local/bin/win11-clipboard-history
+
+# Create desktop entry
+cat > ~/.local/share/applications/win11-clipboard-history.desktop << EOF
+[Desktop Entry]
+Type=Application
+Name=Clipboard History
+Comment=Windows 11-style Clipboard History Manager
+Exec=$HOME/.local/bin/win11-clipboard-history
+Icon=utilities-clipboard
+Terminal=false
+Categories=Utility;
+EOF
+
+# Add ~/.local/bin to PATH if not already there
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+```
+
+**Setting up paste simulation (required)**
+
+AppImage doesn't install udev rules automatically, so you need to set up permissions:
+
+```bash
+# Quick fix (temporary, resets on reboot):
+sudo setfacl -m u:$USER:rw /dev/uinput
+
+# Permanent fix (survives reboot):
+sudo tee /etc/udev/rules.d/99-win11-clipboard-input.rules > /dev/null << 'EOF'
+ACTION=="add", SUBSYSTEM=="misc", KERNEL=="uinput", OPTIONS+="static_node=uinput"
+KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", TAG+="uaccess"
+EOF
+
+echo "uinput" | sudo tee /etc/modules-load.d/win11-clipboard.conf > /dev/null
+sudo modprobe uinput
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=misc
+
+# Apply ACL for immediate access
 sudo setfacl -m u:$USER:rw /dev/uinput
 ```
 
-> **Note:** AppImage is fully portable — no system installation required. The permission command above is only needed for paste simulation.
+> **Note:** You may need to log out and back in for the permanent udev rules to take full effect.
 
 </details>
 
