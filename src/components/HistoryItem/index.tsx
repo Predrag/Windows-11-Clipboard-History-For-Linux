@@ -73,9 +73,24 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
     (e: React.MouseEvent) => {
       e.stopPropagation()
       onTogglePin(item.id)
+
+      // Keep focus on the item after toggling pin (clicking the
+      // button can move focus to the button). Use a next-tick focus to
+      // allow parent state updates to complete.
+      try {
+        const current = (ref as React.RefObject<HTMLDivElement>)?.current
+        if (current && typeof current.focus === 'function') {
+          setTimeout(() => current.focus(), 0)
+        }
+      } catch {
+        // ignore if ref is a callback or not focusable
+      }
     },
-    [item.id, onTogglePin]
+    [item.id, onTogglePin, ref]
   )
+
+  const blueRing =
+    item.pinned && isFocused ? 'focus-visible:ring-2 focus-visible:ring-blue' : undefined
 
   return (
     <div
@@ -87,14 +102,18 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
         'transition-all duration-150 ease-out',
         // Animation delay based on index
         'animate-in',
+        // Blue ring has priority
+        blueRing,
+        // Otherwise default focused ring
+        !blueRing && isFocused ? 'ring-1 ring-blue-500' : undefined,
         // Dark mode styles
         isDark
           ? 'hover:bg-win11-bg-card-hover border border-win11-border-subtle'
           : 'hover:bg-win11Light-bg-card-hover border border-win11Light-border',
         // Pinned indicator
-        item.pinned && 'ring-1 ring-win11-bg-accent',
+        item.pinned && !blueRing && 'ring-1 ring-blue-500',
         // Focus styles
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent'
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
       )}
       onClick={handleClick}
       onFocus={onFocus}
@@ -164,6 +183,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
 
           {/* Pin button */}
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleTogglePin}
             className={clsx(
               'p-1.5 rounded-md transition-colors',
@@ -182,6 +202,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
 
           {/* Delete button */}
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleDelete}
             className={clsx(
               'p-1.5 rounded-md transition-colors',
