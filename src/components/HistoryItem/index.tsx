@@ -1,4 +1,4 @@
-import { useCallback, forwardRef, useRef } from 'react'
+import { useCallback, forwardRef, useRef, useEffect } from 'react'
 import { clsx } from 'clsx'
 import { Pin, X, Image as ImageIcon, Type } from 'lucide-react'
 import type { ClipboardItem } from '../../types/clipboard'
@@ -106,8 +106,26 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
     e.preventDefault()
   }, [])
 
+  // When parent marks this item as focused, ensure the DOM element actually receives focus.
+  // Also retry focusing when the window regains focus (useful after closing/reopening the app).
+  useEffect(() => {
+    const tryFocus = () => internalRef.current?.focus()
+
+    if (isFocused) {
+      setTimeout(tryFocus, 0)
+      window.addEventListener('focus', tryFocus)
+      return () => window.removeEventListener('focus', tryFocus)
+    }
+
+    return undefined
+  }, [isFocused])
+
+  // Apply an explicit visible ring for pinned+focused items so the ring shows
+  // even if :focus-visible isn't triggered (e.g. after reopening the window).
   const pinnedAndFocused =
-    item.pinned && isFocused ? 'focus-visible:ring-2 focus-visible:ring-blue-500' : undefined
+    item.pinned && isFocused
+      ? 'ring-2 ring-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500'
+      : undefined
 
   return (
     <div
