@@ -51,8 +51,8 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
       if (typeof ref === 'function') {
         try {
           ref(el)
-        } catch {
-          /* ignore callback refs that throw */
+        } catch (err) {
+          console.warn('Error in HistoryItem callback ref:', err)
         }
       } else {
         ;(ref as React.MutableRefObject<HTMLDivElement | null>).current = el
@@ -92,11 +92,10 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
     (e: React.MouseEvent) => {
       e.stopPropagation()
       onTogglePin(item.id)
-      // Keep focus on the item after toggling pin (clicking the
-      // button can move focus to the button). Use a next-tick focus to
-      // allow parent state updates to complete. Use the local ref we
-      // maintain so we don't need brittle runtime checks.
-      setTimeout(() => internalRef.current?.focus(), 0)
+      // Keep focus on the item after toggling pin (clicking the button would steal focus)
+      const raf = window.requestAnimationFrame(() => internalRef.current?.focus())
+      // Best-effort: cancel the RAF if component unmounts synchronously.
+      return () => window.cancelAnimationFrame(raf)
     },
     [item.id, onTogglePin]
   )
@@ -110,11 +109,15 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
   // Also retry focusing when the window regains focus (useful after closing/reopening the app).
   useEffect(() => {
     const tryFocus = () => internalRef.current?.focus()
+    let raf: number | null = null
 
     if (isFocused) {
-      setTimeout(tryFocus, 0)
+      raf = window.requestAnimationFrame(tryFocus)
       window.addEventListener('focus', tryFocus)
-      return () => window.removeEventListener('focus', tryFocus)
+      return () => {
+        if (raf !== null) window.cancelAnimationFrame(raf)
+        window.removeEventListener('focus', tryFocus)
+      }
     }
 
     return undefined
@@ -124,7 +127,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
   // even if :focus-visible isn't triggered (e.g. after reopening the window).
   const pinnedAndFocused =
     item.pinned && isFocused
-      ? 'ring-2 ring-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500'
+      ? `ring-2 ring-win11-bg-accent focus-visible:ring-2 focus-visible:ring-win11-bg-accent`
       : undefined
 
   return (
@@ -140,15 +143,15 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
         // Blue ring has priority
         pinnedAndFocused,
         // Otherwise default focused ring
-        !pinnedAndFocused && isFocused ? 'ring-1 ring-blue-500' : undefined,
+        !pinnedAndFocused && isFocused ? `ring-1 ring-win11-bg-accent` : undefined,
         // Dark mode styles
         isDark
           ? 'hover:bg-win11-bg-card-hover border border-win11-border-subtle'
           : 'hover:bg-win11Light-bg-card-hover border border-win11Light-border',
         // Pinned indicator
-        item.pinned && !pinnedAndFocused && 'ring-1 ring-blue-500',
+        item.pinned && !pinnedAndFocused && `ring-1 ring-win11-bg-accent`,
         // Focus styles
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
+        `focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent`
       )}
       onClick={handleClick}
       onFocus={onFocus}
