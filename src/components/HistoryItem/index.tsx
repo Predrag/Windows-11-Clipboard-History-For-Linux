@@ -89,7 +89,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
     [item.id, onTogglePin, ref]
   )
 
-  const blueRing =
+  const pinnedAndFocused =
     item.pinned && isFocused ? 'focus-visible:ring-2 focus-visible:ring-blue' : undefined
 
   return (
@@ -103,15 +103,15 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
         // Animation delay based on index
         'animate-in',
         // Blue ring has priority
-        blueRing,
+        pinnedAndFocused,
         // Otherwise default focused ring
-        !blueRing && isFocused ? 'ring-1 ring-blue-500' : undefined,
+        !pinnedAndFocused && isFocused ? 'ring-1 ring-blue-500' : undefined,
         // Dark mode styles
         isDark
           ? 'hover:bg-win11-bg-card-hover border border-win11-border-subtle'
           : 'hover:bg-win11Light-bg-card-hover border border-win11Light-border',
         // Pinned indicator
-        item.pinned && !blueRing && 'ring-1 ring-blue-500',
+        item.pinned && !pinnedAndFocused && 'ring-1 ring-blue-500',
         // Focus styles
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500'
       )}
