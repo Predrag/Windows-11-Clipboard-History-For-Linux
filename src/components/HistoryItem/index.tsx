@@ -1,4 +1,4 @@
-import { useCallback, forwardRef } from 'react'
+import { useCallback, forwardRef, useRef } from 'react'
 import { clsx } from 'clsx'
 import { Pin, X, Image as ImageIcon, Type } from 'lucide-react'
 import type { ClipboardItem } from '../../types/clipboard'
@@ -41,6 +41,25 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
   },
   ref
 ) {
+  const internalRef = useRef<HTMLDivElement | null>(null)
+
+  // Normalize forwarded ref and keep a local ref so we can safely call focus()
+  const setRefs = useCallback(
+    (el: HTMLDivElement | null) => {
+      internalRef.current = el
+      if (!ref) return
+      if (typeof ref === 'function') {
+        try {
+          ref(el)
+        } catch {
+          /* ignore callback refs that throw */
+        }
+      } else {
+        ;(ref as React.MutableRefObject<HTMLDivElement | null>).current = el
+      }
+    },
+    [ref]
+  )
   const isText = item.content.type === 'Text' || item.content.type === 'RichText'
 
   // Use compact mode only if enabled by flag
@@ -73,28 +92,26 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
     (e: React.MouseEvent) => {
       e.stopPropagation()
       onTogglePin(item.id)
-
       // Keep focus on the item after toggling pin (clicking the
       // button can move focus to the button). Use a next-tick focus to
-      // allow parent state updates to complete.
-      try {
-        const current = (ref as React.RefObject<HTMLDivElement>)?.current
-        if (current && typeof current.focus === 'function') {
-          setTimeout(() => current.focus(), 0)
-        }
-      } catch {
-        // ignore if ref is a callback or not focusable
-      }
+      // allow parent state updates to complete. Use the local ref we
+      // maintain so we don't need brittle runtime checks.
+      setTimeout(() => internalRef.current?.focus(), 0)
     },
-    [item.id, onTogglePin, ref]
+    [item.id, onTogglePin]
   )
 
+  // Prevent buttons from taking focus on pointer down (covers mouse/touch/pen)
+  const handlePointerDownPreventDefault = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+  }, [])
+
   const pinnedAndFocused =
-    item.pinned && isFocused ? 'focus-visible:ring-2 focus-visible:ring-blue' : undefined
+    item.pinned && isFocused ? 'focus-visible:ring-2 focus-visible:ring-blue-500' : undefined
 
   return (
     <div
-      ref={ref}
+      ref={setRefs}
       className={clsx(
         // Base styles
         'group relative rounded-win11 cursor-pointer',
@@ -183,7 +200,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
 
           {/* Pin button */}
           <button
-            onMouseDown={(e) => e.preventDefault()}
+            onPointerDown={handlePointerDownPreventDefault}
             onClick={handleTogglePin}
             className={clsx(
               'p-1.5 rounded-md transition-colors',
@@ -202,7 +219,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
 
           {/* Delete button */}
           <button
-            onMouseDown={(e) => e.preventDefault()}
+            onPointerDown={handlePointerDownPreventDefault}
             onClick={handleDelete}
             className={clsx(
               'p-1.5 rounded-md transition-colors',
