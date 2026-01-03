@@ -183,6 +183,12 @@ export function ClipboardTab(props: {
     return <EmptyState isDark={isDark} />
   }
 
+  // Custom handler to focus item after pinning
+  const handleTogglePin = (id: string, index: number) => {
+    togglePin(id)
+    setFocusedIndex(index)
+  }
+
   return (
     <>
       <Header
@@ -237,7 +243,7 @@ export function ClipboardTab(props: {
               isFocused={index === focusedIndex}
               onPaste={onPaste}
               onDelete={deleteItem}
-              onTogglePin={togglePin}
+              onTogglePin={() => handleTogglePin(item.id, index)}
               onFocus={() => setFocusedIndex(index)}
               isDark={isDark}
               secondaryOpacity={secondaryOpacity}
