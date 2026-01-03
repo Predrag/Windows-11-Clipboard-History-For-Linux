@@ -1,4 +1,4 @@
-import { useCallback, forwardRef } from 'react'
+import { useCallback, forwardRef, useRef, useEffect } from 'react'
 import { clsx } from 'clsx'
 import { Pin, X, Image as ImageIcon, Type } from 'lucide-react'
 import type { ClipboardItem } from '../../types/clipboard'
@@ -41,6 +41,25 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
   },
   ref
 ) {
+  const internalRef = useRef<HTMLDivElement | null>(null)
+
+  // Normalize forwarded ref and keep a local ref so we can safely call focus()
+  const setRefs = useCallback(
+    (el: HTMLDivElement | null) => {
+      internalRef.current = el
+      if (!ref) return
+      if (typeof ref === 'function') {
+        try {
+          ref(el)
+        } catch (err) {
+          console.warn('Error in HistoryItem callback ref:', err)
+        }
+      } else {
+        ;(ref as React.MutableRefObject<HTMLDivElement | null>).current = el
+      }
+    },
+    [ref]
+  )
   const isText = item.content.type === 'Text' || item.content.type === 'RichText'
 
   // Use compact mode only if enabled by flag
@@ -73,13 +92,47 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
     (e: React.MouseEvent) => {
       e.stopPropagation()
       onTogglePin(item.id)
+      // Keep focus on the item after toggling pin (clicking the button would steal focus)
+      const raf = window.requestAnimationFrame(() => internalRef.current?.focus())
+      // Best-effort: cancel the RAF if component unmounts synchronously.
+      return () => window.cancelAnimationFrame(raf)
     },
     [item.id, onTogglePin]
   )
 
+  // Prevent buttons from taking focus on pointer down (covers mouse/touch/pen)
+  const handlePointerDownPreventDefault = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+  }, [])
+
+  // When parent marks this item as focused, ensure the DOM element actually receives focus.
+  // Also retry focusing when the window regains focus (useful after closing/reopening the app).
+  useEffect(() => {
+    const tryFocus = () => internalRef.current?.focus()
+    let raf: number | null = null
+
+    if (isFocused) {
+      raf = window.requestAnimationFrame(tryFocus)
+      window.addEventListener('focus', tryFocus)
+      return () => {
+        if (raf !== null) window.cancelAnimationFrame(raf)
+        window.removeEventListener('focus', tryFocus)
+      }
+    }
+
+    return undefined
+  }, [isFocused])
+
+  // Apply an explicit visible ring for pinned+focused items so the ring shows
+  // even if :focus-visible isn't triggered (e.g. after reopening the window).
+  const pinnedAndFocused =
+    item.pinned && isFocused
+      ? `ring-2 ring-win11-bg-accent focus-visible:ring-2 focus-visible:ring-win11-bg-accent`
+      : undefined
+
   return (
     <div
-      ref={ref}
+      ref={setRefs}
       className={clsx(
         // Base styles
         'group relative rounded-win11 cursor-pointer',
@@ -87,14 +140,18 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
         'transition-all duration-150 ease-out',
         // Animation delay based on index
         'animate-in',
+        // Blue ring has priority
+        pinnedAndFocused,
+        // Otherwise default focused ring
+        !pinnedAndFocused && isFocused ? `ring-1 ring-win11-bg-accent` : undefined,
         // Dark mode styles
         isDark
           ? 'hover:bg-win11-bg-card-hover border border-win11-border-subtle'
           : 'hover:bg-win11Light-bg-card-hover border border-win11Light-border',
         // Pinned indicator
-        item.pinned && 'ring-1 ring-win11-bg-accent',
+        item.pinned && !pinnedAndFocused && `ring-1 ring-win11-bg-accent`,
         // Focus styles
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent'
+        `focus:outline-none focus-visible:ring-2 focus-visible:ring-win11-bg-accent`
       )}
       onClick={handleClick}
       onFocus={onFocus}
@@ -164,6 +221,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
 
           {/* Pin button */}
           <button
+            onPointerDown={handlePointerDownPreventDefault}
             onClick={handleTogglePin}
             className={clsx(
               'p-1.5 rounded-md transition-colors',
@@ -182,6 +240,7 @@ export const HistoryItem = forwardRef<HTMLDivElement, HistoryItemProps>(function
 
           {/* Delete button */}
           <button
+            onPointerDown={handlePointerDownPreventDefault}
             onClick={handleDelete}
             className={clsx(
               'p-1.5 rounded-md transition-colors',
