@@ -72,7 +72,8 @@
           "xdotool",
           "wl-clipboard",
           "acl",
-          "policykit-1",
+          "polkitd",
+          "pkexec",
           "libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37",
           "libgtk-3-0",
           "libayatana-appindicator3-1 | libappindicator3-1"
@@ -103,8 +104,6 @@
         "preRemoveScript": "bundle/linux/postrm.sh"
       }
     },
-    "resources": [
-      "bundle/linux/99-win11-clipboard-input.rules"
-    ]
+    "resources": ["bundle/linux/99-win11-clipboard-input.rules"]
   }
 }
