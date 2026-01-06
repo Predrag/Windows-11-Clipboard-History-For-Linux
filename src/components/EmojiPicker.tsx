@@ -43,7 +43,11 @@ const EmojiCell = memo(function EmojiCell({
       onClick={() => onSelect(emoji)}
       onMouseEnter={() => onHover?.(emoji)}
       onMouseLeave={() => onHover?.(null)}
-      onFocus={onItemFocus}
+      onFocus={() => {
+        onItemFocus?.()
+        onHover?.(emoji)
+      }}
+      onBlur={() => onHover?.(null)}
       onKeyDown={onKeyDown}
       tabIndex={tabIndex}
       data-main-index={mainIndex}
