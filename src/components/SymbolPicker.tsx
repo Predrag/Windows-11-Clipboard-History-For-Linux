@@ -43,7 +43,11 @@ const SymbolCell = memo(function SymbolCell({
       onClick={() => onSelect(symbol)}
       onMouseEnter={() => onHover?.(symbol)}
       onMouseLeave={() => onHover?.(null)}
-      onFocus={onItemFocus}
+      onFocus={() => {
+        onItemFocus?.()
+        onHover?.(symbol)
+      }}
+      onBlur={() => onHover?.(null)}
       onKeyDown={onKeyDown}
       tabIndex={tabIndex}
       data-main-index={mainIndex}

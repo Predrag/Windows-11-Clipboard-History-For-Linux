@@ -126,10 +126,16 @@ export function KaomojiPicker({ isDark, opacity, customKaomojis = [] }: KaomojiP
               data-kaomoji-index={index}
               tabIndex={index === gridFocusedIndex ? 0 : -1}
               onClick={() => handlePaste(item.text)}
-              onFocus={() => setGridFocusedIndex(index)}
+              onFocus={() => {
+                setGridFocusedIndex(index)
+                setHoveredKaomoji({ text: item.text, category: item.category })
+              }}
+              onBlur={() => setHoveredKaomoji(null)}
               onKeyDown={(e) => handleGridKeyDown(e, index)}
               onMouseEnter={() => setHoveredKaomoji({ text: item.text, category: item.category })}
-              onMouseLeave={() => setHoveredKaomoji(null)}
+              onMouseLeave={() => {
+                setHoveredKaomoji(null)
+              }}
               className={clsx(
                 'h-12 flex items-center justify-center rounded-md text-sm',
                 'hover:scale-105 transition-transform duration-100 transform-gpu',
